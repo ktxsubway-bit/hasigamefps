@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D 서바이벌 FPS</title>
-    <!-- Three.js 라이브러리 로드 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body {
@@ -503,7 +502,7 @@
                 velocity.y -= 30.0 * delta; // 중력
 
                 direction.z = Number(moveForward) - Number(moveBackward);
-                direction.x = Number(moveRight) - Number(moveLeft);
+                direction.x = Number(moveLeft) - Number(moveRight); // <- 좌우 반전 수정된 부분
                 direction.normalize(); // 대각선 이동 시 속도 증가 방지
 
                 const speed = 60.0;

@@ -2,613 +2,642 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 서바이벌 FPS</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>벨튀 서바이벌 (Ding-Dong Run)</title>
     <style>
         body {
             margin: 0;
-            overflow: hidden;
-            background-color: #000;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            user-select: none;
-        }
-
-        /* 십자선 (크로스헤어) */
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 20px;
-            height: 20px;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 10;
-        }
-        #crosshair::before, #crosshair::after {
-            content: '';
-            position: absolute;
-            background-color: rgba(0, 255, 0, 0.8);
-        }
-        #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
-        #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
-
-        /* 게임 UI */
-        #ui-layer {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 20px;
-            box-sizing: border-box;
-            z-index: 5;
-        }
-        .top-ui {
-            display: flex;
-            justify-content: space-between;
-            font-size: 2rem;
-            font-weight: bold;
-            color: #fff;
-            text-shadow: 2px 2px 0 #000;
-        }
-        #health { color: #ff3333; }
-        #score { color: #ffd700; }
-        
-        .bottom-ui {
-            align-self: flex-end;
-            background: rgba(0,0,0,0.5);
-            padding: 10px 20px;
-            border-radius: 8px;
-            color: white;
-            font-size: 1rem;
-            text-align: right;
-            border: 1px solid #333;
-        }
-        .key {
-            background: #fff; color: #000;
-            padding: 2px 6px; border-radius: 4px;
-            font-weight: bold; font-size: 0.9rem;
-        }
-
-        /* 시작 / 게임오버 화면 (포인터 락 제어용) */
-        #blocker {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
+            padding: 0;
+            background-color: #ffcc80;
+            color: #333;
+            font-family: 'CookieRun', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: white;
-            z-index: 20;
-            cursor: pointer;
-        }
-        #instructions {
-            text-align: center;
-            line-height: 1.8;
-        }
-        #play-btn {
-            font-size: 3rem;
-            font-weight: bold;
-            color: #00FFCC;
-            margin-bottom: 20px;
-            text-shadow: 0 0 10px rgba(0,255,204,0.5);
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
+            height: 100dvh;
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
         }
 
-        /* 피격 효과 (화면 붉어짐) */
-        #damage-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(255, 0, 0, 0.4);
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.1s;
-            z-index: 15;
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            height: 60vh;
+            background: linear-gradient(to bottom, #81d4fa, #e0f7fa);
+            border: 6px solid #fff;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
         }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 상단 UI */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .stat-box {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 8px 15px;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #00838f;
+            border: 3px solid #00bcd4;
+            box-shadow: 0 4px 0px rgba(0, 188, 212, 0.3);
+        }
+
+        /* 하단 컨트롤러 */
+        #controls {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            gap: 15px;
+            z-index: 5;
+        }
+
+        .action-btn {
+            flex: 1;
+            height: 80px;
+            font-size: 2rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 8px 0px rgba(0,0,0,0.2);
+            transition: transform 0.1s, box-shadow 0.1s, filter 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .action-btn:active {
+            transform: translateY(8px);
+            box-shadow: 0 0px 0px rgba(0,0,0,0.2);
+        }
+
+        .action-btn:disabled {
+            filter: grayscale(100%) opacity(0.5);
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: 0 8px 0px rgba(0,0,0,0.1) !important;
+        }
+
+        #btn-ring {
+            background-color: #ffeb3b;
+            color: #f57f17;
+            box-shadow: 0 8px 0px #f57f17;
+            border: 4px solid #fff;
+        }
+
+        #btn-run {
+            background-color: #ff5252;
+            color: #fff;
+            box-shadow: 0 8px 0px #d32f2f;
+            border: 4px solid #fff;
+        }
+
+        /* 오버레이 (시작, 결과 화면) */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            text-align: center;
+        }
+
+        h1 {
+            color: #00838f;
+            margin-bottom: 10px;
+            font-size: 3rem;
+            text-shadow: 2px 2px 0px #b2ebf2;
+        }
+
+        p {
+            color: #555;
+            margin-bottom: 25px;
+            font-size: 1.2rem;
+            line-height: 1.6;
+            font-weight: bold;
+        }
+
+        .start-btn {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background-color: #00bcd4;
+            color: white;
+            border: 4px solid #fff;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 6px 0px #00838f;
+        }
+
+        .start-btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 0px 0px #00838f;
+        }
+
+        /* 긴장감 텍스트 */
+        #alert-text {
+            position: absolute;
+            top: 30%;
+            width: 100%;
+            text-align: center;
+            font-size: 4rem;
+            font-weight: bold;
+            color: #ff5252;
+            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            z-index: 8;
+        }
+
+        #alert-text.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* 덜컹거림 효과 */
+        .shake { animation: shake 0.1s infinite; }
+        @keyframes shake {
+            0% { transform: translate(2px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(0px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(2px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(2px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
     </style>
 </head>
 <body>
 
-    <div id="crosshair"></div>
-
-    <div id="ui-layer">
-        <div class="top-ui">
-            <div id="health">HP: 100</div>
-            <div id="score">SCORE: 0</div>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+       
+        <div id="ui-layer">
+            <div class="stat-box">거리: <span id="distance">0</span>m</div>
+            <div class="stat-box">레벨: <span id="level">1</span></div>
         </div>
-        <div class="bottom-bar">
-            <div class="bottom-ui">
-                <div><span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> 이동</div>
-                <div><span class="key">마우스 좌클릭</span> 사격</div>
-                <div><span class="key">Space</span> 점프</div>
-            </div>
+
+        <div id="alert-text">누구야?!</div>
+
+        <!-- 시작 화면 -->
+        <div id="start-screen" class="overlay">
+            <h1>🏃‍♂️ 벨튀 서바이벌</h1>
+            <p>
+                <span style="color:#f57f17;">[딩동!]</span>을 누르고 문이 열리기 전에<br>
+                <span style="color:#d32f2f;">[도망쳐!]</span>를 <strong>미친듯이 연타</strong>하세요!<br><br>
+                안전선(깃발 🚩)을 넘으면 성공!
+            </p>
+            <button class="start-btn" id="start-btn">시작하기 (소리 켜기)</button>
+        </div>
+
+        <!-- 결과 화면 -->
+        <div id="result-screen" class="overlay" style="display: none;">
+            <h1 id="result-title" style="color: #ff5252;">잡혔다! 😱</h1>
+            <p id="result-desc">집주인에게 딱 걸렸습니다...</p>
+            <button class="start-btn" id="restart-btn">다시 도전</button>
         </div>
     </div>
 
-    <div id="damage-overlay"></div>
-
-    <div id="blocker">
-        <div id="instructions">
-            <div id="play-btn">클릭하여 전투 시작</div>
-            <div>마우스로 시점을 이동하고, 좌클릭으로 총을 쏘세요.<br>
-            몰려오는 붉은 적들을 파괴하여 생존하십시오.</div>
-            <br>
-            <div style="color:#aaa; font-size:0.9rem;">(게임 중 마우스 잠금을 해제하려면 ESC 키를 누르세요)</div>
-        </div>
+    <div id="controls">
+        <button class="action-btn" id="btn-ring">딩동! 🔔</button>
+        <button class="action-btn" id="btn-run" disabled>도망쳐! 🏃💨</button>
     </div>
 
     <script>
-        // --- 1. Three.js 기본 설정 ---
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color('#1a1a24'); // 어두운 밤/우주 배경
-        scene.fog = new THREE.Fog('#1a1a24', 10, 100);
-
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        document.body.appendChild(renderer.domElement);
-
-        // --- 2. 조명 설정 ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-        scene.add(ambientLight);
-
-        const dirLight = new THREE.DirectionalLight(0xffaa55, 0.6); // 약간 노란빛/주황빛
-        dirLight.position.set(-50, 100, 50);
-        dirLight.castShadow = true;
-        dirLight.shadow.camera.top = 100;
-        dirLight.shadow.camera.bottom = -100;
-        dirLight.shadow.camera.left = -100;
-        dirLight.shadow.camera.right = 100;
-        dirLight.shadow.mapSize.width = 2048;
-        dirLight.shadow.mapSize.height = 2048;
-        scene.add(dirLight);
-
-        // --- 3. FPS 플레이어 및 카메라 컨트롤러 ---
-        // 카메라 회전을 위한 몸체(Yaw)와 머리(Pitch) 구조 생성
-        const playerBody = new THREE.Object3D();
-        playerBody.position.y = 2; // 플레이어 눈높이
-        scene.add(playerBody);
-
-        const pitchObject = new THREE.Object3D();
-        playerBody.add(pitchObject);
-        pitchObject.add(camera);
-
-        // 플레이어 물리 변수
-        const velocity = new THREE.Vector3();
-        const direction = new THREE.Vector3();
-        let moveForward = false;
-        let moveBackward = false;
-        let moveLeft = false;
-        let moveRight = false;
-        let canJump = false;
-
-        let playerHP = 100;
-        let score = 0;
-        let isGameOver = false;
-
-        const hpUI = document.getElementById('health');
-        const scoreUI = document.getElementById('score');
-        const blocker = document.getElementById('blocker');
-        const playBtn = document.getElementById('play-btn');
-        const damageOverlay = document.getElementById('damage-overlay');
-
-        // 포인터 락(마우스 가두기) 이벤트
-        blocker.addEventListener('click', () => {
-            if (isGameOver) {
-                resetGame();
-            }
-            document.body.requestPointerLock();
-        });
-
-        document.addEventListener('pointerlockchange', () => {
-            if (document.pointerLockElement === document.body) {
-                blocker.style.display = 'none';
-            } else {
-                if (!isGameOver) blocker.style.display = 'flex';
-                playBtn.innerText = "클릭하여 계속하기";
-            }
-        });
-
-        // 마우스 이동으로 시점 회전
-        document.addEventListener('mousemove', (e) => {
-            if (document.pointerLockElement === document.body && !isGameOver) {
-                const movementX = e.movementX || e.mozMovementX || e.webkitMovementX || 0;
-                const movementY = e.movementY || e.mozMovementY || e.webkitMovementY || 0;
-
-                // 좌우 회전 (Body)
-                playerBody.rotation.y -= movementX * 0.002;
-                // 상하 회전 (Pitch)
-                pitchObject.rotation.x -= movementY * 0.002;
-                // 고개 각도 제한 (-90도 ~ 90도)
-                pitchObject.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitchObject.rotation.x));
-            }
-        });
-
-        // 키보드 이동 이벤트
-        document.addEventListener('keydown', (e) => {
-            switch (e.code) {
-                case 'KeyW': moveForward = true; break;
-                case 'KeyA': moveLeft = true; break;
-                case 'KeyS': moveBackward = true; break;
-                case 'KeyD': moveRight = true; break;
-                case 'Space': 
-                    if (canJump === true) velocity.y += 15; // 점프력
-                    canJump = false;
-                    break;
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            switch (e.code) {
-                case 'KeyW': moveForward = false; break;
-                case 'KeyA': moveLeft = false; break;
-                case 'KeyS': moveBackward = false; break;
-                case 'KeyD': moveRight = false; break;
-            }
-        });
-
-        // --- 4. 무기 (총기 모델링) ---
-        const weaponGroup = new THREE.Group();
-        
-        // 총열 (Barrel)
-        const barrelGeo = new THREE.BoxGeometry(0.1, 0.1, 0.8);
-        const matDark = new THREE.MeshLambertMaterial({ color: 0x222222 });
-        const barrel = new THREE.Mesh(barrelGeo, matDark);
-        barrel.position.set(0, 0, -0.4);
-        weaponGroup.add(barrel);
-
-        // 총몸 (Body)
-        const gunBodyGeo = new THREE.BoxGeometry(0.15, 0.2, 0.4);
-        const gunBody = new THREE.Mesh(gunBodyGeo, matDark);
-        gunBody.position.set(0, -0.05, 0);
-        weaponGroup.add(gunBody);
-
-        // 조준경 (Scope)
-        const scopeGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.2, 8);
-        scopeGeo.rotateX(Math.PI / 2);
-        const matBlue = new THREE.MeshLambertMaterial({ color: 0x00aaff });
-        const scope = new THREE.Mesh(scopeGeo, matBlue);
-        scope.position.set(0, 0.08, -0.1);
-        weaponGroup.add(scope);
-
-        // 카메라 우측 하단에 총 배치
-        weaponGroup.position.set(0.3, -0.2, -0.5);
-        pitchObject.add(weaponGroup); // 시점에 따라 총이 위아래로 움직이도록 추가
-
-        // 총구 화염 (Muzzle Flash) 라이트
-        const muzzleFlash = new THREE.PointLight(0xffdd00, 0, 5);
-        muzzleFlash.position.set(0, 0, -0.9);
-        weaponGroup.add(muzzleFlash);
-
-        // --- 5. 맵 환경 (아레나) ---
-        // 바닥
-        const floorGeo = new THREE.PlaneGeometry(200, 200);
-        // 바닥에 그리드 무늬 생성
-        const canvas = document.createElement('canvas');
-        canvas.width = 128; canvas.height = 128;
+        const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#111'; ctx.fillRect(0,0,128,128);
-        ctx.strokeStyle = '#00FFCC'; ctx.lineWidth = 2;
-        ctx.strokeRect(0,0,128,128);
-        const floorTex = new THREE.CanvasTexture(canvas);
-        floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
-        floorTex.repeat.set(50, 50);
+        const distanceDisplay = document.getElementById('distance');
+        const levelDisplay = document.getElementById('level');
+        const alertText = document.getElementById('alert-text');
+       
+        const startScreen = document.getElementById('start-screen');
+        const resultScreen = document.getElementById('result-screen');
+        const resultTitle = document.getElementById('result-title');
+        const resultDesc = document.getElementById('result-desc');
+       
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const btnRing = document.getElementById('btn-ring');
+        const btnRun = document.getElementById('btn-run');
 
-        const floorMat = new THREE.MeshLambertMaterial({ map: floorTex });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        floor.receiveShadow = true;
-        scene.add(floor);
+        const CANVAS_WIDTH = 600;
+        const CANVAS_HEIGHT = 400;
 
-        // 엄폐물 (상자들)
-        const obstacles = [];
-        const boxGeo = new THREE.BoxGeometry(4, 4, 4);
-        const boxMat = new THREE.MeshLambertMaterial({ color: 0x444455 });
-        for(let i=0; i<40; i++) {
-            const box = new THREE.Mesh(boxGeo, boxMat);
-            box.position.set(
-                (Math.random() - 0.5) * 150,
-                2,
-                (Math.random() - 0.5) * 150
-            );
-            // 플레이어 시작 위치 근처 비우기
-            if (box.position.length() < 15) continue; 
-            
-            box.castShadow = true;
-            box.receiveShadow = true;
-            scene.add(box);
-            obstacles.push(box);
+        // --- 오디오 시스템 (Web Audio API) ---
+        let audioCtx;
+       
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
         }
 
-        // --- 6. 사격 시스템 (Raycaster) ---
-        const raycaster = new THREE.Raycaster();
-        let recoilTime = 0;
+        function playTone(freq, type, duration, vol=1) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+           
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+           
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
 
-        document.addEventListener('mousedown', (e) => {
-            if (document.pointerLockElement !== document.body || isGameOver) return;
-            if (e.button === 0) shoot(); // 좌클릭
-        });
+        // 딩동 소리
+        function playDingDong() {
+            playTone(659.25, 'sine', 0.5, 0.5); // E5
+            setTimeout(() => playTone(523.25, 'sine', 0.8, 0.5), 400); // C5
+        }
 
-        function shoot() {
-            // 총 반동 애니메이션 트리거
-            recoilTime = 1.0;
-            // 총구 화염 켬
-            muzzleFlash.intensity = 2;
+        // 발소리 (타다닥)
+        function playFootstep() {
+            playTone(150 + Math.random()*50, 'triangle', 0.1, 0.2);
+        }
 
-            // 카메라 정중앙에서 레이저 발사
-            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+        // 문 벌컥 & 화내는 소리
+        function playAngry() {
+            // 문 열리는 쾅 소리
+            playTone(100, 'square', 0.3, 1);
+            // 화내는 호루라기 같은 소리
+            setTimeout(() => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+            }, 100);
+        }
 
-            // 적(enemies) 배열과 충돌 검사
-            const intersects = raycaster.intersectObjects(enemies);
+        // 성공 소리
+        function playSuccess() {
+            playTone(440, 'sine', 0.1, 0.3);
+            setTimeout(() => playTone(554, 'sine', 0.1, 0.3), 100);
+            setTimeout(() => playTone(659, 'sine', 0.3, 0.3), 200);
+        }
 
-            if (intersects.length > 0) {
-                const hitObj = intersects[0].object;
-                if (hitObj.isEnemy) {
-                    // 적 타격 처리
-                    hitObj.health -= 1;
-                    hitObj.material.color.setHex(0xffffff); // 맞으면 잠시 하얗게 깜빡임
-                    setTimeout(() => {
-                        if(hitObj.material) hitObj.material.color.setHex(0xff3333);
-                    }, 100);
 
-                    // 파티클/히트 이펙트 생성
-                    createHitEffect(intersects[0].point);
+        // --- 게임 상태 및 로직 ---
+        let isGameRunning = false;
+        let animationId;
+        let lastTime = 0;
+        let level = 1;
+        let gameState = 'idle'; // 'idle', 'ringing', 'running', 'done'
+       
+        let doorTimer = 0;
+        let doorOpenTime = 2.5; // 집주인이 문 여는 데 걸리는 시간 (레벨 오를수록 감소)
 
-                    if (hitObj.health <= 0) {
-                        // 적 사망
-                        scene.remove(hitObj);
-                        enemies.splice(enemies.indexOf(hitObj), 1);
-                        hitObj.geometry.dispose();
-                        hitObj.material.dispose();
-                        score += 10;
-                        scoreUI.innerText = `SCORE: ${score}`;
-                    }
+        const SAFE_DISTANCE = 100; // 안전거리 100m
+        let distance = 0;
+
+        // 카메라 (화면 스크롤)
+        let cameraX = 0;
+
+        // 객체
+        const player = { x: 80, y: 300, size: 60, emoji: '🏃', wobble: 0 };
+        const door = { x: 50, y: 300, width: 80, height: 120, state: 'closed', shake: false };
+        const owner = { x: 50, y: 300, size: 60, emoji: '😠' };
+       
+        let dustParticles = [];
+
+        function initGame(resetLevel = true) {
+            initAudio(); // 오디오 컨텍스트 초기화
+            if (resetLevel) level = 1;
+           
+            distance = 0;
+            doorTimer = 0;
+            doorOpenTime = Math.max(0.8, 2.5 - (level * 0.2)); // 최소 0.8초까지 짧아짐
+           
+            gameState = 'idle';
+            player.x = 80;
+            cameraX = 0;
+            door.state = 'closed';
+            door.shake = false;
+            dustParticles = [];
+           
+            updateUI();
+           
+            btnRing.disabled = false;
+            btnRun.disabled = true;
+            alertText.classList.remove('show');
+            document.getElementById('game-container').classList.remove('shake');
+           
+            startScreen.style.display = 'none';
+            resultScreen.style.display = 'none';
+           
+            isGameRunning = true;
+            lastTime = performance.now();
+            cancelAnimationFrame(animationId);
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function updateUI() {
+            distanceDisplay.innerText = Math.floor(distance);
+            levelDisplay.innerText = level;
+        }
+
+        function triggerRing() {
+            if (gameState !== 'idle') return;
+           
+            playDingDong();
+            gameState = 'ringing';
+            btnRing.disabled = true;
+           
+            // 딩동 소리 후 0.5초 뒤부터 도망가기 가능
+            setTimeout(() => {
+                if(isGameRunning) {
+                    gameState = 'running';
+                    btnRun.disabled = false;
+                    door.shake = true; // 문이 덜컹거림
+                   
+                    // 스페이스바도 지원
+                    window.addEventListener('keydown', handleSpacebar);
                 }
+            }, 500);
+        }
+
+        function handleSpacebar(e) {
+            if (e.code === 'Space' && gameState === 'running') {
+                e.preventDefault();
+                triggerRun();
+            }
+        }
+
+        function triggerRun() {
+            if (gameState !== 'running') return;
+           
+            playFootstep();
+           
+            // 한번 누를 때마다 거리가 증가하고, 플레이어가 앞으로 감
+            let runAmount = 2.5 + (Math.random() * 1);
+            distance += runAmount;
+            player.x += runAmount * 5; // 화면상 좌표 이동
+            player.wobble += Math.PI / 4; // 씰룩씰룩
+           
+            // 먼지 파티클
+            for(let i=0; i<2; i++) {
+                dustParticles.push({
+                    x: player.x - 20, y: player.y + 20,
+                    vx: -20 - Math.random()*50, vy: -10 - Math.random()*20,
+                    life: 0.5, size: 5 + Math.random()*10
+                });
+            }
+
+            updateUI();
+
+            // 목표 달성 확인
+            if (distance >= SAFE_DISTANCE) {
+                gameWin();
+            }
+        }
+
+        btnRing.addEventListener('mousedown', (e) => { e.preventDefault(); triggerRing(); });
+        btnRing.addEventListener('touchstart', (e) => { e.preventDefault(); triggerRing(); }, {passive: false});
+
+        btnRun.addEventListener('mousedown', (e) => { e.preventDefault(); triggerRun(); });
+        btnRun.addEventListener('touchstart', (e) => { e.preventDefault(); triggerRun(); }, {passive: false});
+
+        function gameWin() {
+            gameState = 'done';
+            btnRun.disabled = true;
+            window.removeEventListener('keydown', handleSpacebar);
+           
+            playSuccess();
+           
+            resultTitle.innerText = "성공! 🎉";
+            resultTitle.style.color = "#00bcd4";
+            resultDesc.innerText = "무사히 도망쳤습니다!\n(다음 레벨은 더 빨리 나옵니다)";
+            resultScreen.style.display = 'flex';
+           
+            restartBtn.innerText = "다음 레벨로";
+            restartBtn.onclick = () => initGame(false); // 레벨 유지하고 재시작
+        }
+
+        function gameLose() {
+            gameState = 'done';
+            btnRun.disabled = true;
+            door.shake = false;
+            door.state = 'open';
+            window.removeEventListener('keydown', handleSpacebar);
+           
+            playAngry();
+           
+            // 시각 효과
+            document.getElementById('game-container').classList.add('shake');
+            alertText.innerText = "거기 안 서?! 💢";
+            alertText.classList.add('show');
+           
+            setTimeout(() => {
+                resultTitle.innerText = "잡혔다! 😱";
+                resultTitle.style.color = "#ff5252";
+                resultDesc.innerText = "딱 걸렸습니다. 엄청 혼났습니다...";
+                resultScreen.style.display = 'flex';
+                restartBtn.innerText = "처음부터 다시";
+                restartBtn.onclick = () => initGame(true);
+            }, 1500);
+        }
+
+
+        function update(deltaTime) {
+            if (gameState === 'running') {
+                // 문 여는 타이머 증가
+                doorTimer += deltaTime;
+               
+                // 플레이어가 안 뛰고 있으면 거리가 조금씩 줄어듦 (뒤로 밀림 방지 차원)
+                // distance = Math.max(0, distance - 2 * deltaTime);
+               
+                if (doorTimer >= doorOpenTime) {
+                    gameLose();
+                }
+            }
+
+            // 카메라가 플레이어를 따라감 (플레이어가 화면 중앙을 넘어서면)
+            let targetCamX = Math.max(0, player.x - CANVAS_WIDTH / 3);
+            cameraX += (targetCamX - cameraX) * 10 * deltaTime;
+
+            // 먼지 파티클
+            for (let i = dustParticles.length - 1; i >= 0; i--) {
+                let p = dustParticles[i];
+                p.x += p.vx * deltaTime;
+                p.y += p.vy * deltaTime;
+                p.life -= deltaTime;
+                if (p.life <= 0) dustParticles.splice(i, 1);
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            ctx.save();
+            ctx.translate(-cameraX, 0);
+
+            // 배경 (바닥, 벽)
+            ctx.fillStyle = '#cfd8dc'; // 벽
+            ctx.fillRect(0, 0, CANVAS_WIDTH + 2000, 320);
+            ctx.fillStyle = '#90a4ae'; // 바닥 보도블록
+            ctx.fillRect(0, 320, CANVAS_WIDTH + 2000, 80);
+
+            // 보도블록 선
+            ctx.strokeStyle = '#78909c';
+            ctx.lineWidth = 2;
+            for(let i=0; i<CANVAS_WIDTH + 2000; i+=100) {
+                ctx.beginPath(); ctx.moveTo(i, 320); ctx.lineTo(i-30, 400); ctx.stroke();
+            }
+
+            // 1. 문 (Door) 그리기
+            ctx.save();
+            if (door.shake) {
+                ctx.translate((Math.random()-0.5)*4, 0); // 덜컹거림
+            }
+           
+            ctx.fillStyle = '#795548'; // 문틀
+            ctx.fillRect(door.x - 10, door.y - door.height - 10, door.width + 20, door.height + 10);
+           
+            if (door.state === 'closed') {
+                ctx.fillStyle = '#8d6e63'; // 문
+                ctx.fillRect(door.x, door.y - door.height, door.width, door.height);
+                ctx.fillStyle = '#f1c40f'; // 손잡이
+                ctx.beginPath(); ctx.arc(door.x + door.width - 15, door.y - door.height/2, 5, 0, Math.PI*2); ctx.fill();
+               
+                // 초인종
+                ctx.fillStyle = '#eeeeee';
+                ctx.fillRect(door.x + door.width + 20, door.y - door.height/2 - 10, 15, 20);
+                ctx.fillStyle = gameState === 'idle' ? '#ff5252' : '#d32f2f'; // 누르면 진해짐
+                ctx.beginPath(); ctx.arc(door.x + door.width + 27.5, door.y - door.height/2, 4, 0, Math.PI*2); ctx.fill();
             } else {
-                // 벽/바닥을 맞췄을 때의 이펙트
-                const obsIntersects = raycaster.intersectObjects([...obstacles, floor]);
-                if (obsIntersects.length > 0) {
-                    createHitEffect(obsIntersects[0].point, true);
+                // 문 열림 (어두운 실내)
+                ctx.fillStyle = '#000';
+                ctx.fillRect(door.x, door.y - door.height, door.width, door.height);
+               
+                // 집주인 화난 이모지
+                ctx.font = '60px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(owner.emoji, door.x + door.width/2, door.y);
+            }
+            ctx.restore();
+
+            // 2. 안전선 (도착 지점 깃발)
+            let finishX = 80 + (SAFE_DISTANCE * 5); // 시작점 + 거리비율
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(finishX, 220, 5, 100);
+            ctx.fillStyle = '#ff5252';
+            ctx.beginPath(); ctx.moveTo(finishX, 220); ctx.lineTo(finishX + 40, 240); ctx.lineTo(finishX, 260); ctx.fill();
+            ctx.font = '20px Arial'; ctx.fillStyle = '#000';
+            ctx.fillText('SAFE ZONE', finishX + 20, 210);
+
+            // 3. 파티클
+            for (let p of dustParticles) {
+                ctx.fillStyle = `rgba(200, 200, 200, ${p.life * 2})`;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+            }
+
+            // 4. 플레이어
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            if (gameState === 'running' || gameState === 'done') {
+                ctx.rotate(Math.sin(player.wobble) * 0.3); // 뛰는 폼
+                ctx.translate(0, -Math.abs(Math.sin(player.wobble)*10)); // 뜀박질 위아래
+            }
+            ctx.font = `${player.size}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            // 잡히면 울고, 도망가면 땀흘림
+            let pEmoji = player.emoji;
+            if (gameState === 'done') {
+                pEmoji = door.state === 'open' ? '😭' : '😎';
+            }
+            ctx.fillText(pEmoji, 0, 0);
+            ctx.restore();
+
+            ctx.restore(); // 카메라 복구
+
+            // 긴장감 연출 (문이 열리기 직전에 화면 가장자리가 빨개짐)
+            if (gameState === 'running') {
+                let dangerLevel = doorTimer / doorOpenTime;
+                if (dangerLevel > 0.7) {
+                    ctx.fillStyle = `rgba(255, 0, 0, ${(dangerLevel - 0.7) * 0.5})`;
+                    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
                 }
             }
         }
 
-        // 타격 파티클 이펙트
-        const hitEffects = [];
-        function createHitEffect(position, isWall = false) {
-            const geo = new THREE.SphereGeometry(0.2, 8, 8);
-            const mat = new THREE.MeshBasicMaterial({ 
-                color: isWall ? 0xaaaaaa : 0xffaa00, 
-                transparent: true, opacity: 1 
-            });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.copy(position);
-            scene.add(mesh);
-            hitEffects.push({ mesh: mesh, life: 1.0 });
-        }
+        function gameLoop(currentTime) {
+            if (!isGameRunning) return;
 
-        // --- 7. 적(Enemy) 시스템 ---
-        const enemies = [];
-        const enemyGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-        const enemyMatBase = new THREE.MeshLambertMaterial({ color: 0xff3333 }); // 붉은 적
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
 
-        function spawnEnemy() {
-            if (isGameOver) return;
-            
-            // 너무 많아지지 않게 제한
-            if (enemies.length > 20) return;
+            if (deltaTime < 0.2) {
+                update(deltaTime);
+                draw();
+            }
 
-            const enemyMat = enemyMatBase.clone();
-            const enemy = new THREE.Mesh(enemyGeo, enemyMat);
-            
-            // 플레이어 주변 무작위 가장자리에 스폰
-            const angle = Math.random() * Math.PI * 2;
-            const radius = 40 + Math.random() * 20;
-            enemy.position.set(
-                playerBody.position.x + Math.cos(angle) * radius,
-                1.5,
-                playerBody.position.z + Math.sin(angle) * radius
-            );
-            
-            enemy.castShadow = true;
-            enemy.isEnemy = true;
-            enemy.health = 3; // 총 3대 맞아야 죽음
-            
-            // 드론처럼 둥둥 떠다니는 효과를 위한 변수
-            enemy.hoverOffset = Math.random() * Math.PI * 2; 
-
-            scene.add(enemy);
-            enemies.push(enemy);
-        }
-
-        // 2초마다 적 생성
-        setInterval(spawnEnemy, 2000);
-        // 초기 적 스폰
-        for(let i=0; i<5; i++) spawnEnemy();
-
-
-        // --- 8. 게임 오버 / 리셋 ---
-        function takeDamage() {
-            if (isGameOver) return;
-            playerHP -= 10;
-            hpUI.innerText = `HP: ${playerHP}`;
-            
-            // 피격 효과 (화면 빨개짐)
-            damageOverlay.style.opacity = '1';
-            setTimeout(() => { damageOverlay.style.opacity = '0'; }, 150);
-
-            if (playerHP <= 0) {
-                isGameOver = true;
-                hpUI.innerText = `HP: 0`;
-                document.exitPointerLock();
-                blocker.style.display = 'flex';
-                playBtn.innerText = "GAME OVER";
-                document.getElementById('instructions').innerHTML += `<br><br><span style="color:#ffd700; font-size:1.5rem">최종 점수: ${score}</span><br><br>클릭하여 다시 시작`;
+            if (isGameRunning) {
+                animationId = requestAnimationFrame(gameLoop);
             }
         }
 
-        function resetGame() {
-            playerHP = 100;
-            score = 0;
-            hpUI.innerText = `HP: 100`;
-            scoreUI.innerText = `SCORE: 0`;
-            isGameOver = false;
-            
-            // 플레이어 위치 초기화
-            playerBody.position.set(0, 2, 0);
-            velocity.set(0,0,0);
+        // 이벤트 초기화
+        startBtn.addEventListener('click', () => initGame(true));
+       
+        // 폰트 및 초기 로드 대기
+        window.onload = () => {
+            initAudio(); // 권한 요구될 수 있으므로 클릭 시점에 다시 호출
+            draw();
+        };
 
-            // 적 초기화
-            enemies.forEach(e => { scene.remove(e); e.geometry.dispose(); e.material.dispose(); });
-            enemies.length = 0;
-            for(let i=0; i<5; i++) spawnEnemy();
-
-            // UI 텍스트 복구
-            document.getElementById('instructions').innerHTML = `
-                <div id="play-btn">클릭하여 전투 시작</div>
-                <div>마우스로 시점을 이동하고, 좌클릭으로 총을 쏘세요.<br>
-                몰려오는 붉은 적들을 파괴하여 생존하십시오.</div>
-                <br>
-                <div style="color:#aaa; font-size:0.9rem;">(게임 중 마우스 잠금을 해제하려면 ESC 키를 누르세요)</div>
-            `;
-            playBtn = document.getElementById('play-btn'); // DOM 갱신 후 변수 재할당
-        }
-
-
-        // --- 9. 메인 게임 루프 ---
-        const clock = new THREE.Clock();
-
-        function animate() {
-            requestAnimationFrame(animate);
-
-            const delta = Math.min(clock.getDelta(), 0.1); // 프레임 저하 시 로직 꼬임 방지
-
-            if (document.pointerLockElement === document.body && !isGameOver) {
-                
-                // 1) 물리 / 이동 처리 (커스텀 FPS 컨트롤)
-                velocity.x -= velocity.x * 10.0 * delta; // 마찰력
-                velocity.z -= velocity.z * 10.0 * delta;
-                velocity.y -= 30.0 * delta; // 중력
-
-                direction.z = Number(moveForward) - Number(moveBackward);
-                direction.x = Number(moveLeft) - Number(moveRight); // <- 좌우 반전 수정된 부분
-                direction.normalize(); // 대각선 이동 시 속도 증가 방지
-
-                const speed = 60.0;
-                if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
-                if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
-
-                // 시점 방향 기준으로 앞뒤/좌우 이동 적용
-                playerBody.translateX(velocity.x * delta);
-                playerBody.translateZ(velocity.z * delta);
-                playerBody.position.y += velocity.y * delta;
-
-                // 바닥 충돌 (점프 착지)
-                if (playerBody.position.y < 2) {
-                    velocity.y = 0;
-                    playerBody.position.y = 2;
-                    canJump = true;
-                }
-
-                // 맵 경계선 제한
-                playerBody.position.x = Math.max(-95, Math.min(95, playerBody.position.x));
-                playerBody.position.z = Math.max(-95, Math.min(95, playerBody.position.z));
-
-                // 간단한 엄폐물 충돌 막기
-                for(let box of obstacles) {
-                    let dx = playerBody.position.x - box.position.x;
-                    let dz = playerBody.position.z - box.position.z;
-                    if(Math.abs(dx) < 2.5 && Math.abs(dz) < 2.5) {
-                        playerBody.position.x -= velocity.x * delta;
-                        playerBody.position.z -= velocity.z * delta;
-                    }
-                }
-
-                // 2) 무기 반동(Recoil) 애니메이션
-                if (recoilTime > 0) {
-                    recoilTime -= delta * 10;
-                    // 총이 뒤로 밀려남
-                    weaponGroup.position.z = -0.5 + Math.sin(recoilTime * Math.PI) * 0.15;
-                    weaponGroup.rotation.x = Math.sin(recoilTime * Math.PI) * 0.1;
-                } else {
-                    weaponGroup.position.z = -0.5;
-                    weaponGroup.rotation.x = 0;
-                }
-
-                // 총구 화염 소멸
-                if (muzzleFlash.intensity > 0) {
-                    muzzleFlash.intensity -= delta * 20;
-                }
-
-                // 3) 적(Enemy) AI 로직
-                const time = Date.now() * 0.003;
-                for (let i = enemies.length - 1; i >= 0; i--) {
-                    const enemy = enemies[i];
-                    
-                    // 플레이어 바라보기 (높이는 무시)
-                    const targetPos = playerBody.position.clone();
-                    targetPos.y = enemy.position.y;
-                    enemy.lookAt(targetPos);
-                    
-                    // 플레이어 향해 전진
-                    const distToPlayer = enemy.position.distanceTo(playerBody.position);
-                    if (distToPlayer > 1.5) {
-                        enemy.translateZ(3.0 * delta); // 이동 속도
-                    } else {
-                        // 플레이어와 충돌 (공격)
-                        takeDamage();
-                        
-                        // 적 소멸 (자폭)
-                        scene.remove(enemy);
-                        enemies.splice(i, 1);
-                        enemy.geometry.dispose();
-                        enemy.material.dispose();
-                        continue;
-                    }
-
-                    // 둥둥 떠다니는 애니메이션
-                    enemy.position.y = 1.5 + Math.sin(time + enemy.hoverOffset) * 0.3;
-                }
-
-                // 4) 타격 이펙트 애니메이션
-                for (let i = hitEffects.length - 1; i >= 0; i--) {
-                    const effect = hitEffects[i];
-                    effect.life -= delta * 4;
-                    effect.mesh.scale.setScalar(1 + (1 - effect.life) * 2);
-                    effect.mesh.material.opacity = effect.life;
-                    
-                    if (effect.life <= 0) {
-                        scene.remove(effect.mesh);
-                        effect.mesh.geometry.dispose();
-                        effect.mesh.material.dispose();
-                        hitEffects.splice(i, 1);
-                    }
-                }
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        // 화면 리사이즈
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        // 루프 시작
-        animate();
     </script>
 </body>
 </html>

@@ -8,8 +8,8 @@
         body {
             margin: 0;
             padding: 0;
-            background-color: #ffcc80;
-            color: #333;
+            background-color: #111; /* 어두운 배경으로 변경하여 긴장감 조성 */
+            color: #fff;
             font-family: 'CookieRun', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
@@ -27,10 +27,10 @@
             width: 100%;
             max-width: 600px;
             height: 60vh;
-            background: linear-gradient(to bottom, #81d4fa, #e0f7fa);
-            border: 6px solid #fff;
+            background: linear-gradient(to bottom, #1a237e, #006064); /* 밤 배경 */
+            border: 4px solid #4dd0e1;
             border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 40px rgba(0, 255, 255, 0.2);
             overflow: hidden;
         }
 
@@ -56,13 +56,13 @@
         }
 
         .stat-box {
-            background-color: rgba(255, 255, 255, 0.9);
+            background-color: rgba(0, 0, 0, 0.8);
             padding: 8px 15px;
             border-radius: 15px;
             font-size: 1.2rem;
             font-weight: bold;
-            color: #00838f;
-            border: 3px solid #00bcd4;
+            color: #00e5ff;
+            border: 2px solid #00bcd4;
             box-shadow: 0 4px 0px rgba(0, 188, 212, 0.3);
         }
 
@@ -79,8 +79,8 @@
 
         .action-btn {
             flex: 1;
-            height: 80px;
-            font-size: 2rem;
+            height: 85px;
+            font-size: 2.2rem;
             font-weight: bold;
             border: none;
             border-radius: 20px;
@@ -88,26 +88,26 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            box-shadow: 0 8px 0px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 0px rgba(0,0,0,0.4);
             transition: transform 0.1s, box-shadow 0.1s, filter 0.2s;
             -webkit-tap-highlight-color: transparent;
         }
 
         .action-btn:active {
             transform: translateY(8px);
-            box-shadow: 0 0px 0px rgba(0,0,0,0.2);
+            box-shadow: 0 0px 0px rgba(0,0,0,0.4);
         }
 
         .action-btn:disabled {
-            filter: grayscale(100%) opacity(0.5);
+            filter: grayscale(100%) opacity(0.3);
             cursor: not-allowed;
             transform: none !important;
-            box-shadow: 0 8px 0px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 8px 0px rgba(0,0,0,0.2) !important;
         }
 
         #btn-ring {
             background-color: #ffeb3b;
-            color: #f57f17;
+            color: #d84315;
             box-shadow: 0 8px 0px #f57f17;
             border: 4px solid #fff;
         }
@@ -115,7 +115,7 @@
         #btn-run {
             background-color: #ff5252;
             color: #fff;
-            box-shadow: 0 8px 0px #d32f2f;
+            box-shadow: 0 8px 0px #b71c1c;
             border: 4px solid #fff;
         }
 
@@ -126,7 +126,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(255, 255, 255, 0.9);
+            background-color: rgba(10, 10, 20, 0.95);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -136,15 +136,15 @@
         }
 
         h1 {
-            color: #00838f;
+            color: #00e5ff;
             margin-bottom: 10px;
             font-size: 3rem;
-            text-shadow: 2px 2px 0px #b2ebf2;
+            text-shadow: 0 0 15px #00bcd4;
         }
 
         p {
-            color: #555;
-            margin-bottom: 25px;
+            color: #ddd;
+            margin-bottom: 30px;
             font-size: 1.2rem;
             line-height: 1.6;
             font-weight: bold;
@@ -154,17 +154,25 @@
             padding: 15px 40px;
             font-size: 1.5rem;
             font-weight: bold;
-            background-color: #00bcd4;
+            background-color: #ff5252;
             color: white;
-            border: 4px solid #fff;
+            border: 3px solid #fff;
             border-radius: 30px;
             cursor: pointer;
-            box-shadow: 0 6px 0px #00838f;
+            box-shadow: 0 6px 0px #b71c1c, 0 0 20px rgba(255, 82, 82, 0.5);
+            animation: pulse-btn 1.5s infinite;
         }
 
         .start-btn:active {
             transform: translateY(6px);
-            box-shadow: 0 0px 0px #00838f;
+            box-shadow: 0 0px 0px #b71c1c;
+            animation: none;
+        }
+
+        @keyframes pulse-btn {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
 
         /* 긴장감 텍스트 */
@@ -175,8 +183,8 @@
             text-align: center;
             font-size: 4rem;
             font-weight: bold;
-            color: #ff5252;
-            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff;
+            color: #ff1744;
+            text-shadow: 3px 3px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff;
             opacity: 0;
             transform: scale(0.5);
             transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -186,23 +194,22 @@
 
         #alert-text.show {
             opacity: 1;
-            transform: scale(1);
+            transform: scale(1) rotate(-5deg);
         }
 
         /* 덜컹거림 효과 */
         .shake { animation: shake 0.1s infinite; }
+        .shake-intense { animation: shake-intense 0.05s infinite; }
+       
         @keyframes shake {
             0% { transform: translate(2px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(0px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
             50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(2px, 1px) rotate(-1deg); }
-            80% { transform: translate(-1px, -1px) rotate(1deg); }
-            90% { transform: translate(2px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
+            100% { transform: translate(1px, -2px) rotate(1deg); }
+        }
+        @keyframes shake-intense {
+            0% { transform: translate(5px, 3px) rotate(0deg); }
+            50% { transform: translate(-3px, 5px) rotate(-2deg); }
+            100% { transform: translate(3px, -5px) rotate(2deg); }
         }
 
     </style>
@@ -213,28 +220,29 @@
         <canvas id="gameCanvas" width="600" height="400"></canvas>
        
         <div id="ui-layer">
-            <div class="stat-box">거리: <span id="distance">0</span>m</div>
+            <div class="stat-box">목표까지: <span id="distance">100</span>m</div>
             <div class="stat-box">레벨: <span id="level">1</span></div>
         </div>
 
-        <div id="alert-text">누구야?!</div>
+        <div id="alert-text">누구야?! 💢</div>
 
         <!-- 시작 화면 -->
         <div id="start-screen" class="overlay">
             <h1>🏃‍♂️ 벨튀 서바이벌</h1>
             <p>
-                <span style="color:#f57f17;">[딩동!]</span>을 누르고 문이 열리기 전에<br>
-                <span style="color:#d32f2f;">[도망쳐!]</span>를 <strong>미친듯이 연타</strong>하세요!<br><br>
-                안전선(깃발 🚩)을 넘으면 성공!
+                <span style="color:#ffeb3b;">[딩동!]</span>을 누르면 주인이 나옵니다.<br>
+                <span style="color:#ff5252;">[도망쳐!]</span>를 <strong>미친듯이 연타</strong>해서<br>
+                문이 열리기 전에 안전구역으로 튀세요!<br><br>
+                <small style="color: #00e5ff;">※ 소리를 켜야 심장 쫄깃함을 느낄 수 있습니다.</small>
             </p>
-            <button class="start-btn" id="start-btn">시작하기 (소리 켜기)</button>
+            <button class="start-btn" id="start-btn">시작 (소리 켜기) 🔊</button>
         </div>
 
         <!-- 결과 화면 -->
         <div id="result-screen" class="overlay" style="display: none;">
-            <h1 id="result-title" style="color: #ff5252;">잡혔다! 😱</h1>
-            <p id="result-desc">집주인에게 딱 걸렸습니다...</p>
-            <button class="start-btn" id="restart-btn">다시 도전</button>
+            <h1 id="result-title" style="color: #ff1744; font-size: 4rem; text-shadow: 0 0 20px #ff1744;">잡혔다! 😱</h1>
+            <p id="result-desc">문이 열리고 말았습니다...</p>
+            <button class="start-btn" id="restart-btn" style="background-color: #00e5ff; color: #000; box-shadow: 0 6px 0px #00838f;">다시 도전</button>
         </div>
     </div>
 
@@ -246,6 +254,8 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
+       
         const distanceDisplay = document.getElementById('distance');
         const levelDisplay = document.getElementById('level');
         const alertText = document.getElementById('alert-text');
@@ -291,40 +301,38 @@
             osc.stop(audioCtx.currentTime + duration);
         }
 
-        // 딩동 소리
+        // 스릴 넘치는 효과음들
         function playDingDong() {
-            playTone(659.25, 'sine', 0.5, 0.5); // E5
-            setTimeout(() => playTone(523.25, 'sine', 0.8, 0.5), 400); // C5
+            playTone(659.25, 'sine', 0.5, 0.6); // E5
+            setTimeout(() => playTone(523.25, 'sine', 0.8, 0.6), 400); // C5
         }
 
-        // 발소리 (타다닥)
         function playFootstep() {
-            playTone(150 + Math.random()*50, 'triangle', 0.1, 0.2);
+            playTone(100 + Math.random()*50, 'triangle', 0.1, 0.4);
         }
 
-        // 문 벌컥 & 화내는 소리
+        // 심장 박동 소리 (쿵쿵)
+        function playHeartbeat() {
+            playTone(60, 'sine', 0.15, 1.2);
+            setTimeout(() => playTone(60, 'sine', 0.15, 0.8), 150);
+        }
+
+        // 잡혔을 때 공포스러운 화음
         function playAngry() {
-            // 문 열리는 쾅 소리
-            playTone(100, 'square', 0.3, 1);
-            // 화내는 호루라기 같은 소리
+            // 문 쾅!
+            playTone(80, 'square', 0.5, 1);
+            // 소름끼치는 노이즈
             setTimeout(() => {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-                osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.5);
-                gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+                playTone(150, 'sawtooth', 1.0, 0.8);
+                playTone(165, 'sawtooth', 1.0, 0.8); // 불협화음
+                playTone(180, 'square', 1.0, 0.5);
             }, 100);
         }
 
-        // 성공 소리
         function playSuccess() {
             playTone(440, 'sine', 0.1, 0.3);
             setTimeout(() => playTone(554, 'sine', 0.1, 0.3), 100);
-            setTimeout(() => playTone(659, 'sine', 0.3, 0.3), 200);
+            setTimeout(() => playTone(659, 'sine', 0.4, 0.3), 200);
         }
 
 
@@ -336,28 +344,31 @@
         let gameState = 'idle'; // 'idle', 'ringing', 'running', 'done'
        
         let doorTimer = 0;
-        let doorOpenTime = 2.5; // 집주인이 문 여는 데 걸리는 시간 (레벨 오를수록 감소)
+        let doorOpenTime = 2.5;
+        let heartbeatTimer = 0;
 
-        const SAFE_DISTANCE = 100; // 안전거리 100m
-        let distance = 0;
+        const SAFE_DISTANCE = 100; // 목표 거리 (100m에서 0m로 줄임)
+        let currentDistance = 0; // 달린 거리
 
-        // 카메라 (화면 스크롤)
         let cameraX = 0;
 
         // 객체
         const player = { x: 80, y: 300, size: 60, emoji: '🏃', wobble: 0 };
         const door = { x: 50, y: 300, width: 80, height: 120, state: 'closed', shake: false };
-        const owner = { x: 50, y: 300, size: 60, emoji: '😠' };
+        const owner = { x: 50, y: 300, size: 60, emoji: '👹' }; // 더 무서운 오니 얼굴
        
         let dustParticles = [];
 
         function initGame(resetLevel = true) {
-            initAudio(); // 오디오 컨텍스트 초기화
+            initAudio();
             if (resetLevel) level = 1;
            
-            distance = 0;
+            currentDistance = 0;
             doorTimer = 0;
-            doorOpenTime = Math.max(0.8, 2.5 - (level * 0.2)); // 최소 0.8초까지 짧아짐
+            heartbeatTimer = 0;
+           
+            // 레벨이 오를수록 문 여는 시간이 줄어듦 (기존보다 시간을 늘려서 덜 빡세게 수정!)
+            doorOpenTime = Math.max(1.2, 3.5 - (level * 0.2));
            
             gameState = 'idle';
             player.x = 80;
@@ -371,7 +382,7 @@
             btnRing.disabled = false;
             btnRun.disabled = true;
             alertText.classList.remove('show');
-            document.getElementById('game-container').classList.remove('shake');
+            gameContainer.className = ''; // 흔들림 클래스 제거
            
             startScreen.style.display = 'none';
             resultScreen.style.display = 'none';
@@ -383,7 +394,8 @@
         }
 
         function updateUI() {
-            distanceDisplay.innerText = Math.floor(distance);
+            let remain = Math.max(0, SAFE_DISTANCE - currentDistance);
+            distanceDisplay.innerText = Math.floor(remain);
             levelDisplay.innerText = level;
         }
 
@@ -394,23 +406,31 @@
             gameState = 'ringing';
             btnRing.disabled = true;
            
-            // 딩동 소리 후 0.5초 뒤부터 도망가기 가능
+            // 딩동 후 0.7초의 무서운 정적... 그 후 달리기 시작
             setTimeout(() => {
                 if(isGameRunning) {
                     gameState = 'running';
                     btnRun.disabled = false;
-                    door.shake = true; // 문이 덜컹거림
+                    door.shake = true;
+                    playHeartbeat(); // 첫 심장박동 시작
                    
-                    // 스페이스바도 지원
                     window.addEventListener('keydown', handleSpacebar);
                 }
-            }, 500);
+            }, 700);
         }
 
         function handleSpacebar(e) {
             if (e.code === 'Space' && gameState === 'running') {
                 e.preventDefault();
                 triggerRun();
+               
+                // 스페이스바 누를 때 버튼 애니메이션 연동
+                btnRun.style.transform = 'translateY(8px)';
+                btnRun.style.boxShadow = '0 0px 0px #b71c1c';
+                setTimeout(() => {
+                    btnRun.style.transform = '';
+                    btnRun.style.boxShadow = '';
+                }, 50);
             }
         }
 
@@ -419,25 +439,24 @@
            
             playFootstep();
            
-            // 한번 누를 때마다 거리가 증가하고, 플레이어가 앞으로 감
-            let runAmount = 2.5 + (Math.random() * 1);
-            distance += runAmount;
-            player.x += runAmount * 5; // 화면상 좌표 이동
-            player.wobble += Math.PI / 4; // 씰룩씰룩
+            // 앞으로 전진 (한 번 터치할 때 더 멀리 도망가도록 수정!)
+            let runAmount = 3.0 + (Math.random() * 1.5);
+            currentDistance += runAmount;
+            player.x += runAmount * 5; // 화면 스크롤 속도
+            player.wobble += Math.PI / 3;
            
-            // 먼지 파티클
-            for(let i=0; i<2; i++) {
+            // 먼지 이펙트
+            for(let i=0; i<3; i++) {
                 dustParticles.push({
                     x: player.x - 20, y: player.y + 20,
-                    vx: -20 - Math.random()*50, vy: -10 - Math.random()*20,
-                    life: 0.5, size: 5 + Math.random()*10
+                    vx: -30 - Math.random()*80, vy: -10 - Math.random()*30,
+                    life: 0.4, size: 5 + Math.random()*15
                 });
             }
 
             updateUI();
 
-            // 목표 달성 확인
-            if (distance >= SAFE_DISTANCE) {
+            if (currentDistance >= SAFE_DISTANCE) {
                 gameWin();
             }
         }
@@ -452,16 +471,20 @@
             gameState = 'done';
             btnRun.disabled = true;
             window.removeEventListener('keydown', handleSpacebar);
+            gameContainer.className = '';
            
             playSuccess();
            
-            resultTitle.innerText = "성공! 🎉";
-            resultTitle.style.color = "#00bcd4";
-            resultDesc.innerText = "무사히 도망쳤습니다!\n(다음 레벨은 더 빨리 나옵니다)";
+            resultTitle.innerText = "생존! 🎉";
+            resultTitle.style.color = "#00e5ff";
+            resultTitle.style.textShadow = "0 0 15px #00bcd4";
+            resultDesc.innerText = `Lv.${level} 성공!\n주인이 더 빨라집니다.`;
             resultScreen.style.display = 'flex';
            
             restartBtn.innerText = "다음 레벨로";
-            restartBtn.onclick = () => initGame(false); // 레벨 유지하고 재시작
+            restartBtn.style.backgroundColor = "#ff5252";
+            restartBtn.style.color = "#fff";
+            restartBtn.onclick = () => { level++; initGame(false); };
         }
 
         function gameLose() {
@@ -470,43 +493,65 @@
             door.shake = false;
             door.state = 'open';
             window.removeEventListener('keydown', handleSpacebar);
+            gameContainer.className = 'shake-intense'; // 극심한 화면 흔들림
            
             playAngry();
            
-            // 시각 효과
-            document.getElementById('game-container').classList.add('shake');
-            alertText.innerText = "거기 안 서?! 💢";
+            alertText.innerText = "잡았다 요놈!! 💀";
             alertText.classList.add('show');
            
             setTimeout(() => {
-                resultTitle.innerText = "잡혔다! 😱";
-                resultTitle.style.color = "#ff5252";
-                resultDesc.innerText = "딱 걸렸습니다. 엄청 혼났습니다...";
+                resultTitle.innerText = "사망 🩸";
+                resultTitle.style.color = "#ff1744";
+                resultTitle.style.textShadow = "0 0 20px #d50000";
+                resultDesc.innerText = "주인에게 잡혀버렸습니다...";
                 resultScreen.style.display = 'flex';
                 restartBtn.innerText = "처음부터 다시";
+                restartBtn.style.backgroundColor = "#00e5ff";
+                restartBtn.style.color = "#000";
                 restartBtn.onclick = () => initGame(true);
             }, 1500);
         }
 
+        // 위험도에 따른 심장박동 & 화면 연출
+        let dangerVignette = 0;
 
         function update(deltaTime) {
             if (gameState === 'running') {
-                // 문 여는 타이머 증가
                 doorTimer += deltaTime;
+                let dangerLevel = doorTimer / doorOpenTime; // 0.0 ~ 1.0
                
-                // 플레이어가 안 뛰고 있으면 거리가 조금씩 줄어듦 (뒤로 밀림 방지 차원)
-                // distance = Math.max(0, distance - 2 * deltaTime);
+                // 심장 박동 간격 조절 (위험할수록 엄청 빨라짐)
+                let beatInterval = Math.max(0.15, 0.8 - (dangerLevel * 0.7));
+                heartbeatTimer += deltaTime;
+                if (heartbeatTimer >= beatInterval) {
+                    playHeartbeat();
+                    heartbeatTimer = 0;
+                    dangerVignette = 0.8 * dangerLevel; // 심장 뛸 때마다 붉은 화면 번쩍!
+                }
                
+                // 점점 화면이 붉어지는 기본 베이스
+                dangerVignette = Math.max(dangerVignette - deltaTime * 2, dangerLevel * 0.3);
+
+                // 카메라 흔들림 강도 조절
+                if (dangerLevel > 0.8) {
+                    gameContainer.className = 'shake-intense';
+                } else if (dangerLevel > 0.5) {
+                    gameContainer.className = 'shake';
+                }
+
                 if (doorTimer >= doorOpenTime) {
                     gameLose();
                 }
+            } else {
+                dangerVignette = 0;
             }
 
-            // 카메라가 플레이어를 따라감 (플레이어가 화면 중앙을 넘어서면)
+            // 카메라 타겟 추적
             let targetCamX = Math.max(0, player.x - CANVAS_WIDTH / 3);
             cameraX += (targetCamX - cameraX) * 10 * deltaTime;
 
-            // 먼지 파티클
+            // 파티클 업데이트
             for (let i = dustParticles.length - 1; i >= 0; i--) {
                 let p = dustParticles[i];
                 p.x += p.vx * deltaTime;
@@ -522,64 +567,66 @@
             ctx.save();
             ctx.translate(-cameraX, 0);
 
-            // 배경 (바닥, 벽)
-            ctx.fillStyle = '#cfd8dc'; // 벽
+            // 어두운 밤거리 배경
+            ctx.fillStyle = '#263238'; // 벽
             ctx.fillRect(0, 0, CANVAS_WIDTH + 2000, 320);
-            ctx.fillStyle = '#90a4ae'; // 바닥 보도블록
+            ctx.fillStyle = '#102027'; // 바닥
             ctx.fillRect(0, 320, CANVAS_WIDTH + 2000, 80);
 
-            // 보도블록 선
-            ctx.strokeStyle = '#78909c';
-            ctx.lineWidth = 2;
-            for(let i=0; i<CANVAS_WIDTH + 2000; i+=100) {
-                ctx.beginPath(); ctx.moveTo(i, 320); ctx.lineTo(i-30, 400); ctx.stroke();
+            // 가로등 빛 효과
+            for(let i=150; i<CANVAS_WIDTH + 2000; i+=300) {
+                let grd = ctx.createRadialGradient(i, 100, 10, i, 320, 200);
+                grd.addColorStop(0, 'rgba(255, 235, 59, 0.4)');
+                grd.addColorStop(1, 'rgba(255, 235, 59, 0)');
+                ctx.fillStyle = grd;
+                ctx.fillRect(i - 200, 0, 400, 400);
             }
 
             // 1. 문 (Door) 그리기
             ctx.save();
-            if (door.shake) {
-                ctx.translate((Math.random()-0.5)*4, 0); // 덜컹거림
+            if (door.shake && gameState === 'running') {
+                ctx.translate((Math.random()-0.5)*6, (Math.random()-0.5)*6); // 덜컹거림
             }
            
-            ctx.fillStyle = '#795548'; // 문틀
+            ctx.fillStyle = '#3e2723'; // 문틀
             ctx.fillRect(door.x - 10, door.y - door.height - 10, door.width + 20, door.height + 10);
            
             if (door.state === 'closed') {
-                ctx.fillStyle = '#8d6e63'; // 문
+                ctx.fillStyle = '#5d4037'; // 닫힌 문
                 ctx.fillRect(door.x, door.y - door.height, door.width, door.height);
-                ctx.fillStyle = '#f1c40f'; // 손잡이
+                ctx.fillStyle = '#fbc02d'; // 손잡이
                 ctx.beginPath(); ctx.arc(door.x + door.width - 15, door.y - door.height/2, 5, 0, Math.PI*2); ctx.fill();
                
-                // 초인종
-                ctx.fillStyle = '#eeeeee';
+                // 초인종 (빛남)
+                ctx.fillStyle = '#cfd8dc';
                 ctx.fillRect(door.x + door.width + 20, door.y - door.height/2 - 10, 15, 20);
-                ctx.fillStyle = gameState === 'idle' ? '#ff5252' : '#d32f2f'; // 누르면 진해짐
+                ctx.fillStyle = gameState === 'idle' ? '#ff1744' : '#7f0000';
                 ctx.beginPath(); ctx.arc(door.x + door.width + 27.5, door.y - door.height/2, 4, 0, Math.PI*2); ctx.fill();
             } else {
-                // 문 열림 (어두운 실내)
-                ctx.fillStyle = '#000';
+                // 문 열림 (공포스러운 붉은 배경)
+                ctx.fillStyle = '#b71c1c';
                 ctx.fillRect(door.x, door.y - door.height, door.width, door.height);
                
-                // 집주인 화난 이모지
-                ctx.font = '60px Arial';
+                // 집주인
+                ctx.font = '80px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
-                ctx.fillText(owner.emoji, door.x + door.width/2, door.y);
+                ctx.fillText(owner.emoji, door.x + door.width/2, door.y + 10);
             }
             ctx.restore();
 
-            // 2. 안전선 (도착 지점 깃발)
-            let finishX = 80 + (SAFE_DISTANCE * 5); // 시작점 + 거리비율
+            // 2. 안전선 (도착 지점)
+            let finishX = 80 + (SAFE_DISTANCE * 6);
             ctx.fillStyle = '#fff';
             ctx.fillRect(finishX, 220, 5, 100);
-            ctx.fillStyle = '#ff5252';
+            ctx.fillStyle = '#00e5ff';
             ctx.beginPath(); ctx.moveTo(finishX, 220); ctx.lineTo(finishX + 40, 240); ctx.lineTo(finishX, 260); ctx.fill();
-            ctx.font = '20px Arial'; ctx.fillStyle = '#000';
-            ctx.fillText('SAFE ZONE', finishX + 20, 210);
+            ctx.font = 'bold 20px Arial'; ctx.fillStyle = '#00e5ff';
+            ctx.fillText('SAFE ZONE', finishX + 60, 240);
 
-            // 3. 파티클
+            // 3. 파티클 (먼지)
             for (let p of dustParticles) {
-                ctx.fillStyle = `rgba(200, 200, 200, ${p.life * 2})`;
+                ctx.fillStyle = `rgba(150, 150, 150, ${p.life * 2})`;
                 ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
             }
 
@@ -587,29 +634,28 @@
             ctx.save();
             ctx.translate(player.x, player.y);
             if (gameState === 'running' || gameState === 'done') {
-                ctx.rotate(Math.sin(player.wobble) * 0.3); // 뛰는 폼
-                ctx.translate(0, -Math.abs(Math.sin(player.wobble)*10)); // 뜀박질 위아래
+                ctx.rotate(Math.sin(player.wobble) * 0.4);
+                ctx.translate(0, -Math.abs(Math.sin(player.wobble)*15));
             }
             ctx.font = `${player.size}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
-            // 잡히면 울고, 도망가면 땀흘림
             let pEmoji = player.emoji;
             if (gameState === 'done') {
-                pEmoji = door.state === 'open' ? '😭' : '😎';
+                pEmoji = door.state === 'open' ? '💀' : '😎';
             }
             ctx.fillText(pEmoji, 0, 0);
             ctx.restore();
 
             ctx.restore(); // 카메라 복구
 
-            // 긴장감 연출 (문이 열리기 직전에 화면 가장자리가 빨개짐)
-            if (gameState === 'running') {
-                let dangerLevel = doorTimer / doorOpenTime;
-                if (dangerLevel > 0.7) {
-                    ctx.fillStyle = `rgba(255, 0, 0, ${(dangerLevel - 0.7) * 0.5})`;
-                    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-                }
+            // 5. 심장박동 스릴 이펙트 (화면 붉어짐 비네팅)
+            if (dangerVignette > 0) {
+                let grad = ctx.createRadialGradient(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 100, CANVAS_WIDTH/2, CANVAS_HEIGHT/2, CANVAS_WIDTH);
+                grad.addColorStop(0, 'rgba(255, 0, 0, 0)');
+                grad.addColorStop(1, `rgba(255, 0, 0, ${Math.min(0.8, dangerVignette)})`);
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             }
         }
 
@@ -629,12 +675,9 @@
             }
         }
 
-        // 이벤트 초기화
         startBtn.addEventListener('click', () => initGame(true));
        
-        // 폰트 및 초기 로드 대기
         window.onload = () => {
-            initAudio(); // 권한 요구될 수 있으므로 클릭 시점에 다시 호출
             draw();
         };
 

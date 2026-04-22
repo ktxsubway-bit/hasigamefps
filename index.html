@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 마을 광장 - 스폰 수정 버전</title>
+    <title>3D 마을 광장 - 권한 수정 버전</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -21,7 +21,7 @@
             bottom: 20px; left: 20px;
             width: 380px;
             max-height: 450px;
-            background: rgba(15, 23, 42, 0.85);
+            background: rgba(15, 23, 42, 0.9);
             backdrop-filter: blur(20px);
             border-radius: 16px;
             display: flex;
@@ -36,7 +36,6 @@
             padding: 15px;
             font-size: 14px;
             color: #f1f5f9;
-            max-height: 350px;
         }
         #chat-input-container {
             display: flex;
@@ -45,7 +44,7 @@
         }
         #chat-input {
             flex: 1;
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
             padding: 10px 14px;
@@ -53,8 +52,8 @@
             outline: none;
             font-size: 14px;
         }
-        .msg-item { margin-bottom: 10px; line-height: 1.5; animation: slideUp 0.3s ease; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .msg-item { margin-bottom: 8px; line-height: 1.5; animation: slideUp 0.2s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .msg-user { font-weight: 800; color: #818cf8; margin-right: 6px; }
         #status-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -68,7 +67,7 @@
 <div id="status-overlay">
     <div class="text-center">
         <div class="text-3xl font-black mb-2 tracking-tighter text-indigo-400">TOWN SQUARE</div>
-        <div id="status-text" class="text-sm opacity-60">안전하게 마을로 진입 중...</div>
+        <div id="status-text" class="text-sm opacity-60">서버 권한을 확인하는 중...</div>
     </div>
 </div>
 
@@ -76,7 +75,7 @@
     <div class="flex justify-between items-start">
         <div>
             <h1 class="text-2xl font-black text-indigo-400">TOWN CHAT</h1>
-            <div class="text-xs opacity-70">마을 스폰 지점 수정 완료</div>
+            <div class="text-xs opacity-70">인증 기반 채팅 시스템</div>
         </div>
         <div class="text-right text-xs space-y-1 bg-black/30 p-3 rounded-lg backdrop-blur-md">
             <p><span class="font-bold text-indigo-300">W,A,S,D</span> 이동 | <span class="font-bold text-indigo-300">Enter</span> 채팅</p>
@@ -93,22 +92,33 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    const firebaseConfig = JSON.parse('{"apiKey": "AIzaSyDq2XKX-WD5Igl9GxoQ7lxiyjdZoXxEl_E", "authDomain": "watergun-2c1d9.firebaseapp.com", "projectId": "watergun-2c1d9", "storageBucket": "watergun-2c1d9.firebasestorage.app", "messagingSenderId": "186215519097", "appId": "1:186215519097:web:542176191999aee8f115a8"}');
+    // Firebase 설정 (환경 변수 우선 순위)
+    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+        ? JSON.parse(__firebase_config) 
+        : {
+            apiKey: "AIzaSyDq2XKX-WD5Igl9GxoQ7lxiyjdZoXxEl_E",
+            authDomain: "watergun-2c1d9.firebaseapp.com",
+            projectId: "watergun-2c1d9",
+            storageBucket: "watergun-2c1d9.firebasestorage.app",
+            messagingSenderId: "186215519097",
+            appId: "1:186215519097:web:542176191999aee8f115a8"
+        };
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'town-plaza-v1';
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    const appId = "town-plaza-v1";
 
     let scene, camera, renderer, clock;
-    let userId = null;
+    let currentUser = null;
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
     let yaw = 0, pitch = 0;
+    const displayedMessageIds = new Set();
 
-    // 마을 에셋 생성 함수들
+    // 마을 모델링 생성 함수들
     function createTree(x, z) {
         const group = new THREE.Group();
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 1.5), new THREE.MeshStandardMaterial({ color: 0x4d2d1e }));
@@ -133,16 +143,16 @@
     }
 
     async function init() {
+        // 3D 씬 설정
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0f172a);
-        scene.fog = new THREE.Fog(0x0f172a, 10, 100);
+        scene.fog = new THREE.Fog(0x0f172a, 10, 120);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-        const sun = new THREE.DirectionalLight(0xffffff, 0.6);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const sun = new THREE.DirectionalLight(0xffffff, 0.8);
         sun.position.set(10, 20, 10);
         scene.add(sun);
 
-        // 바닥을 먼저 확실히 생성 (Y=0 지점)
         const ground = new THREE.Mesh(
             new THREE.PlaneGeometry(1000, 1000), 
             new THREE.MeshStandardMaterial({ color: 0x1e293b })
@@ -151,7 +161,6 @@
         ground.position.y = 0;
         scene.add(ground);
 
-        // 초기 카메라 위치 설정 (Y=1.7로 지면보다 확실히 위에 둠)
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(0, 1.7, 10); 
 
@@ -159,15 +168,15 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // 마을 꾸미기
         createHouse(-10, -10, 0x475569);
         createHouse(15, -5, 0x334155);
-        for(let i=0; i<20; i++) {
-            createTree(Math.random()*80-40, Math.random()*80-40);
+        for(let i=0; i<30; i++) {
+            createTree(Math.random()*100-50, Math.random()*100-50);
         }
 
         clock = new THREE.Clock();
 
+        // 이벤트 리스너
         window.addEventListener('resize', onWindowResize);
         document.addEventListener('keydown', (e) => {
             if(e.code === 'Enter') document.getElementById('chat-input').focus();
@@ -187,16 +196,28 @@
             }
         };
 
-        try {
-            await signInAnonymously(auth);
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    userId = user.uid;
-                    document.getElementById('status-overlay').style.display = 'none';
-                    startChatSync();
+        // 인증 및 Firestore 초기화 (RULE 3 준수)
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
                 }
-            });
-        } catch (e) { console.error(e); }
+            } catch (err) {
+                console.error("Auth initialization failed:", err);
+            }
+        };
+
+        await initAuth();
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('status-overlay').style.display = 'none';
+                startChatSync();
+            }
+        });
 
         document.getElementById('chat-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendChatMessage();
@@ -206,37 +227,65 @@
     }
 
     function startChatSync() {
+        if (!currentUser) return;
+        
+        // RULE 1: 정확한 공용 데이터 경로 사용
         const chatCol = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
+        
+        // 실시간 동기화
         onSnapshot(chatCol, (snap) => {
-            const newDocs = snap.docChanges().filter(c => c.type === "added").map(c => c.doc.data());
-            newDocs.sort((a, b) => (a.time?.toMillis() || 0) - (b.time?.toMillis() || 0));
-            newDocs.forEach(m => appendChatUI(m));
+            const newMessages = [];
+            snap.forEach(doc => {
+                if (!displayedMessageIds.has(doc.id)) {
+                    newMessages.push({ id: doc.id, ...doc.data() });
+                    displayedMessageIds.add(doc.id);
+                }
+            });
+
+            // 시간순 정렬 (RULE 2: JS 메모리 필터링/정렬)
+            newMessages.sort((a, b) => (a.time?.toMillis() || 0) - (b.time?.toMillis() || 0));
+            newMessages.forEach(m => appendChatUI(m));
+        }, (error) => {
+            console.error("Firestore Listen Error:", error);
+            if (error.code === 'permission-denied') {
+                console.warn("Retrying auth due to permission denial...");
+            }
         });
     }
 
     async function sendChatMessage() {
+        if (!currentUser) return;
         const input = document.getElementById('chat-input');
         const text = input.value.trim();
         if (!text) return;
+
         input.value = '';
         input.blur();
+
         try {
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'chats'), {
-                uid: userId.substring(0, 5),
+            const chatCol = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
+            await addDoc(chatCol, {
+                uid: currentUser.uid.substring(0, 5),
                 text: text,
                 time: serverTimestamp()
             });
-        } catch(e) {}
+        } catch(e) {
+            console.error("Chat Send Error:", e);
+        }
     }
 
     function appendChatUI(data) {
         if(!data.text) return;
+        const container = document.getElementById('chat-messages');
         const div = document.createElement('div');
         div.className = 'msg-item';
         div.innerHTML = `<span class="msg-user">이웃(${data.uid})</span><span class="msg-text">${data.text}</span>`;
-        const container = document.getElementById('chat-messages');
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
+        
+        if (container.children.length > 50) {
+            container.removeChild(container.firstChild);
+        }
     }
 
     function updateKey(c, p) {
@@ -263,10 +312,7 @@
                 dir.normalize().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), yaw));
                 camera.position.add(dir.multiplyScalar(7 * delta));
             }
-            
-            // 카메라 높이 강제 고정 (지하로 떨어짐 방지)
             camera.position.y = 1.7;
-            
             camera.rotation.set(0,0,0);
             camera.rotateY(yaw); camera.rotateX(pitch);
         }

@@ -83,7 +83,7 @@
 <div id="status-overlay">
     <div class="text-center">
         <div class="text-5xl font-black mb-4 tracking-tighter text-sky-400 italic">CITY SYNC</div>
-        <div class="text-xs opacity-40 tracking-[0.6em] uppercase font-bold">Connecting to live chat and time...</div>
+        <div id="loader-text" class="text-xs opacity-40 tracking-[0.6em] uppercase font-bold">Connecting to live chat and time...</div>
     </div>
 </div>
 
@@ -113,9 +113,10 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getDatabase, ref, push, set, onValue, serverTimestamp, query, limitToLast } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getDatabase, ref, push, onValue, serverTimestamp, query, limitToLast } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
+    // Firebase Config Handling
     const firebaseConfig = typeof __firebase_config !== 'undefined' 
         ? JSON.parse(__firebase_config) 
         : {
@@ -126,7 +127,7 @@
             appId: "1:186215519097:web:542176191999aee8f115a8"
         };
 
-    const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'time-city-v2';
+    const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'time-city-v3';
     const appId = rawAppId.replace(/[\.\#\$\/\[\]]/g, '_');
 
     const app = initializeApp(firebaseConfig);
@@ -146,7 +147,6 @@
     let dayTime = 12.0; 
     const TIME_SPEED = 0.5;
 
-    // --- 시간 주기 관리 ---
     function updateDayNightCycle(delta) {
         dayTime = (dayTime + delta * TIME_SPEED) % 24;
         const hour = Math.floor(dayTime);
@@ -190,7 +190,6 @@
         });
     }
 
-    // --- 가로등 및 건물 생성 로직 ---
     function createStreetLamp(x, z) {
         const group = new THREE.Group();
         const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 4, 8), new THREE.MeshStandardMaterial({ color: 0x334155 }));
@@ -233,10 +232,10 @@
         obstacles.push({ minX: x-width/2-0.5, maxX: x+width/2+0.5, minZ: z-depth/2-0.5, maxZ: z+depth/2+0.5, type: 'box' });
     }
 
-    // --- 채팅 시스템 로직 ---
     function startChatSync() {
         if (!currentUser) return;
-        const chatRef = query(ref(db, `artifacts/${appId}/public/data/chats`), limitToLast(50));
+        const chatPath = `artifacts/${appId}/public/data/chats`;
+        const chatRef = query(ref(db, chatPath), limitToLast(50));
         onValue(chatRef, (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
@@ -246,6 +245,8 @@
                     displayedMessageIds.add(key);
                 }
             });
+        }, (error) => {
+            console.error("Chat sync failed:", error);
         });
     }
 
@@ -264,7 +265,7 @@
             });
             input.value = '';
         } catch(e) { 
-            console.error(e); 
+            console.error("Message send failed:", e); 
         } finally { 
             input.disabled = false; 
             input.focus(); 
@@ -280,7 +281,6 @@
         container.scrollTop = container.scrollHeight;
     }
 
-    // --- 초기화 및 루프 ---
     async function init() {
         scene = new THREE.Scene();
         scene.fog = new THREE.Fog(0x7dd3fc, 1, 800);
@@ -313,17 +313,27 @@
         clock = new THREE.Clock();
 
         const initAuth = async () => {
-            await signInAnonymously(auth);
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    currentUser = user;
-                    document.getElementById('status-overlay').style.opacity = '0';
-                    setTimeout(() => document.getElementById('status-overlay').remove(), 1000);
-                    startChatSync();
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
                 }
-            });
+            } catch (err) {
+                console.error("Auth failed:", err);
+            }
         };
-        initAuth();
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('status-overlay').style.opacity = '0';
+                setTimeout(() => document.getElementById('status-overlay').remove(), 1000);
+                startChatSync();
+            }
+        });
+
+        await initAuth();
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;

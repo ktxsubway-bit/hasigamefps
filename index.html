@@ -3,63 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 마을 광장 - 전송 수정 버전</title>
+    <title>3D 써니 메트로폴리스 - 데이 나이트 사이클</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Pretendard', sans-serif; background: #0f172a; }
+        body { margin: 0; overflow: hidden; font-family: 'Pretendard', sans-serif; background: #000; }
         canvas { display: block; }
         #ui {
             position: absolute;
-            top: 20px; left: 20px; right: 20px;
+            top: 25px; left: 25px; right: 25px;
             pointer-events: none;
-            color: white;
+            color: #f8fafc;
             z-index: 10;
         }
         #chat-container {
             position: absolute;
-            bottom: 20px; left: 20px;
+            bottom: 25px; left: 25px;
             width: 380px;
-            max-height: 400px;
-            background: rgba(15, 23, 42, 0.9);
-            backdrop-filter: blur(20px);
-            border-radius: 16px;
+            max-height: 350px;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
             display: flex;
             flex-direction: column;
             pointer-events: auto;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
         #chat-messages {
             flex: 1;
             overflow-y: auto;
-            padding: 15px;
+            padding: 20px;
             font-size: 14px;
-            color: #f1f5f9;
+            color: #e2e8f0;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
         }
         #chat-input-container {
             display: flex;
-            padding: 12px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
         #chat-input {
             flex: 1;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            padding: 10px 14px;
-            border-radius: 8px;
+            color: #f8fafc;
+            padding: 12px 16px;
+            border-radius: 12px;
             outline: none;
-            font-size: 14px;
+            transition: all 0.2s;
         }
-        #chat-input:disabled { opacity: 0.5; cursor: not-allowed; }
-        .msg-item { margin-bottom: 8px; line-height: 1.5; animation: slideUp 0.2s ease-out; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        .msg-user { font-weight: 800; color: #818cf8; margin-right: 6px; }
+        #chat-input:focus { border-color: #38bdf8; background: rgba(255, 255, 255, 0.1); }
+        .msg-item { margin-bottom: 8px; line-height: 1.5; }
+        .msg-user { font-weight: 700; color: #38bdf8; margin-right: 8px; }
         #status-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #0f172a; display: flex; align-items: center; justify-content: center;
-            z-index: 100; color: white;
+            background: #020617; display: flex; align-items: center; justify-content: center;
+            z-index: 100; color: #f8fafc; transition: opacity 1s;
+        }
+        .crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 10px; height: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        #time-display {
+            font-family: monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fbbf24;
         }
     </style>
 </head>
@@ -67,19 +82,24 @@
 
 <div id="status-overlay">
     <div class="text-center">
-        <div class="text-3xl font-black mb-2 tracking-tighter text-indigo-400">TOWN SQUARE</div>
-        <div id="status-text" class="text-sm opacity-60">연결을 시도 중입니다...</div>
+        <div class="text-5xl font-black mb-4 tracking-tighter text-sky-400 italic">CITY SYNC</div>
+        <div class="text-xs opacity-40 tracking-[0.6em] uppercase font-bold">Connecting to live chat and time...</div>
     </div>
 </div>
 
+<div class="crosshair"></div>
+
 <div id="ui">
     <div class="flex justify-between items-start">
-        <div>
-            <h1 class="text-2xl font-black text-indigo-400">TOWN CHAT</h1>
-            <div class="text-xs opacity-70">안정적인 채팅 전송 모드</div>
+        <div class="bg-black/40 p-6 rounded-2xl border-l-4 border-amber-500 shadow-2xl backdrop-blur-md">
+            <h1 class="text-xl font-black tracking-tighter text-white">CHRONOS METROPOLIS</h1>
+            <div id="time-display">12:00</div>
+            <div id="cycle-text" class="text-[10px] opacity-80 mt-1 uppercase tracking-widest font-bold text-amber-400">Daytime</div>
         </div>
-        <div class="text-right text-xs space-y-1 bg-black/30 p-3 rounded-lg backdrop-blur-md">
-            <p><span class="font-bold text-indigo-300">W,A,S,D</span> 이동 | <span class="font-bold text-indigo-300">Enter</span> 채팅</p>
+        <div class="text-right text-[11px] space-y-2 bg-black/40 p-5 rounded-2xl border-r-4 border-sky-500 shadow-2xl text-slate-300 font-medium backdrop-blur-md">
+            <p><span class="bg-white/10 px-2 py-1 rounded">WASD</span> 이동</p>
+            <p><span class="bg-white/10 px-2 py-1 rounded">SHIFT</span> 달리기</p>
+            <p><span class="bg-white/10 px-2 py-1 rounded">CLICK</span> 시점 고정</p>
         </div>
     </div>
 </div>
@@ -87,95 +107,242 @@
 <div id="chat-container">
     <div id="chat-messages"></div>
     <div id="chat-input-container">
-        <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." maxlength="50">
+        <input type="text" id="chat-input" placeholder="메시지를 입력하세요 (Enter)" maxlength="50">
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, getDocs, deleteDoc, doc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getDatabase, ref, push, set, onValue, serverTimestamp, query, limitToLast } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
     const firebaseConfig = typeof __firebase_config !== 'undefined' 
         ? JSON.parse(__firebase_config) 
         : {
-            apiKey: "AIzaSyDq2XKX-WD5Igl9GxoQ7lxiyjdZoXxEl_E",
-            authDomain: "watergun-2c1d9.firebaseapp.com",
-            projectId: "watergun-2c1d9",
-            storageBucket: "watergun-2c1d9.firebasestorage.app",
-            messagingSenderId: "186215519097",
+            apiKey: "",
+            authDomain: "home-cb654.firebaseapp.com",
+            databaseURL: "https://home-cb654-default-rtdb.firebaseio.com/",
+            projectId: "home-cb654",
             appId: "1:186215519097:web:542176191999aee8f115a8"
         };
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'town-plaza-v1';
+
+    const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'time-city-v2';
+    const appId = rawAppId.replace(/[\.\#\$\/\[\]]/g, '_');
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-    const db = getFirestore(app);
+    const db = getDatabase(app);
 
-    let scene, camera, renderer, clock;
+    let scene, camera, renderer, clock, sunLight, ambientLight;
     let currentUser = null;
-    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, isSprinting = false;
     let yaw = 0, pitch = 0;
+    const obstacles = [];
+    const windowMaterials = [];
+    const lampMaterials = [];
     const displayedMessageIds = new Set();
 
-    function createTree(x, z) {
-        const group = new THREE.Group();
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 1.5), new THREE.MeshStandardMaterial({ color: 0x4d2d1e }));
-        trunk.position.y = 0.75;
-        const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2.5, 8), new THREE.MeshStandardMaterial({ color: 0x1a4d2e }));
-        leaves.position.y = 2.5;
-        group.add(trunk, leaves);
-        group.position.set(x, 0, z);
-        scene.add(group);
+    const EYE_HEIGHT = 1.7;
+    let dayTime = 12.0; 
+    const TIME_SPEED = 0.5;
+
+    // --- 시간 주기 관리 ---
+    function updateDayNightCycle(delta) {
+        dayTime = (dayTime + delta * TIME_SPEED) % 24;
+        const hour = Math.floor(dayTime);
+        const min = Math.floor((dayTime % 1) * 60);
+        document.getElementById('time-display').textContent = `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+
+        let skyColor, sunIntensity, ambientIntensity;
+        if (dayTime >= 5 && dayTime < 8) { 
+            const t = (dayTime - 5) / 3;
+            skyColor = new THREE.Color().lerpColors(new THREE.Color(0x1e293b), new THREE.Color(0xfb923c), t);
+            sunIntensity = t * 0.8; ambientIntensity = 0.3 + t * 0.2;
+            document.getElementById('cycle-text').textContent = "Dawn";
+        } else if (dayTime >= 8 && dayTime < 17) { 
+            skyColor = new THREE.Color(0x7dd3fc); sunIntensity = 1.2; ambientIntensity = 0.6;
+            document.getElementById('cycle-text').textContent = "Daytime";
+        } else if (dayTime >= 17 && dayTime < 20) { 
+            const t = (dayTime - 17) / 3;
+            skyColor = new THREE.Color().lerpColors(new THREE.Color(0x7dd3fc), new THREE.Color(0x4c1d95), t);
+            sunIntensity = 1.2 * (1 - t); ambientIntensity = 0.6 * (1 - t) + 0.2;
+            document.getElementById('cycle-text').textContent = "Sunset";
+        } else { 
+            skyColor = new THREE.Color(0x020617); sunIntensity = 0; ambientIntensity = 0.2;
+            document.getElementById('cycle-text').textContent = "Midnight";
+        }
+
+        scene.background = skyColor;
+        scene.fog.color = skyColor;
+        sunLight.intensity = sunIntensity;
+        ambientLight.intensity = ambientIntensity;
+
+        const angle = (dayTime / 24) * Math.PI * 2 + Math.PI;
+        sunLight.position.set(Math.cos(angle) * 200, Math.sin(angle) * 200, 100);
+
+        const lightThreshold = (dayTime > 18 || dayTime < 6);
+        windowMaterials.forEach(m => {
+            if (m.userData.alwaysOff) return;
+            m.emissiveIntensity = THREE.MathUtils.lerp(m.emissiveIntensity, lightThreshold ? m.userData.origIntensity : 0, 0.1);
+        });
+        lampMaterials.forEach(m => {
+            m.emissiveIntensity = THREE.MathUtils.lerp(m.emissiveIntensity, lightThreshold ? 2.5 : 0, 0.1);
+        });
     }
 
-    function createHouse(x, z, color) {
+    // --- 가로등 및 건물 생성 로직 ---
+    function createStreetLamp(x, z) {
         const group = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 4), new THREE.MeshStandardMaterial({ color: color }));
-        body.position.y = 2;
-        const roof = new THREE.Mesh(new THREE.ConeGeometry(3.5, 2, 4), new THREE.MeshStandardMaterial({ color: 0x7c2d12 }));
-        roof.rotation.y = Math.PI / 4;
-        roof.position.y = 5;
-        group.add(body, roof);
-        group.position.set(x, 0, z);
-        scene.add(group);
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 4, 8), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+        post.position.y = 2; group.add(post);
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xfff9c4, emissive: 0xffd54f, emissiveIntensity: 0 });
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), headMat);
+        head.position.y = 4; group.add(head);
+        lampMaterials.push(headMat); group.position.set(x, 0, z); scene.add(group);
+        obstacles.push({ x, z, radius: 0.5 });
     }
 
+    function createDetailedBuilding(x, z, width, height, depth) {
+        const group = new THREE.Group();
+        const bodyMat = new THREE.MeshStandardMaterial({ color: [0x1e293b, 0x334155, 0x475569][Math.floor(Math.random() * 3)], roughness: 0.8 });
+        const body = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), bodyMat);
+        body.position.y = height / 2; group.add(body);
+
+        const winColors = [0xffd166, 0xfcfcfc, 0x0ea5e9];
+        const gap = 3;
+        const windowGeo = new THREE.PlaneGeometry(0.8, 1.2);
+
+        for (let y = 3; y < height - 2; y += gap) {
+            for (let side = 0; side < 4; side++) {
+                const limit = (side % 2 === 0) ? width : depth;
+                for (let p = -limit / 2 + 1.5; p < limit / 2 - 1; p += gap) {
+                    const isOff = Math.random() < 0.3;
+                    const mat = new THREE.MeshStandardMaterial({ color: 0x111827, emissive: winColors[Math.floor(Math.random() * winColors.length)], emissiveIntensity: 0 });
+                    mat.userData = { origIntensity: Math.random() * 0.8 + 0.7, alwaysOff: isOff };
+                    windowMaterials.push(mat);
+                    const win = new THREE.Mesh(windowGeo, mat);
+                    if (side === 0) win.position.set(p, y, depth / 2 + 0.05);
+                    if (side === 1) { win.position.set(width / 2 + 0.05, y, p); win.rotation.y = Math.PI / 2; }
+                    if (side === 2) { win.position.set(p, y, -depth / 2 - 0.05); win.rotation.y = Math.PI; }
+                    if (side === 3) { win.position.set(-width / 2 - 0.05, y, p); win.rotation.y = -Math.PI / 2; }
+                    group.add(win);
+                }
+            }
+        }
+        group.position.set(x, 0, z); scene.add(group);
+        obstacles.push({ minX: x-width/2-0.5, maxX: x+width/2+0.5, minZ: z-depth/2-0.5, maxZ: z+depth/2+0.5, type: 'box' });
+    }
+
+    // --- 채팅 시스템 로직 ---
+    function startChatSync() {
+        if (!currentUser) return;
+        const chatRef = query(ref(db, `artifacts/${appId}/public/data/chats`), limitToLast(50));
+        onValue(chatRef, (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+            Object.keys(data).forEach(key => {
+                if (!displayedMessageIds.has(key)) {
+                    appendChatUI(data[key]);
+                    displayedMessageIds.add(key);
+                }
+            });
+        });
+    }
+
+    async function sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text || !currentUser) return;
+
+        input.disabled = true;
+        try {
+            const chatListRef = ref(db, `artifacts/${appId}/public/data/chats`);
+            await push(chatListRef, {
+                uid: currentUser.uid.substring(0, 5),
+                text: text,
+                time: serverTimestamp()
+            });
+            input.value = '';
+        } catch(e) { 
+            console.error(e); 
+        } finally { 
+            input.disabled = false; 
+            input.focus(); 
+        }
+    }
+
+    function appendChatUI(data) {
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = 'msg-item';
+        div.innerHTML = `<span class="msg-user">@${data.uid}</span><span class="msg-text">${data.text}</span>`;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // --- 초기화 및 루프 ---
     async function init() {
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0f172a);
-        scene.fog = new THREE.Fog(0x0f172a, 10, 120);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-        const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-        sun.position.set(10, 20, 10);
-        scene.add(sun);
+        scene.fog = new THREE.Fog(0x7dd3fc, 1, 800);
+        ambientLight = new THREE.AmbientLight(0xffffff, 0.6); scene.add(ambientLight);
+        sunLight = new THREE.DirectionalLight(0xffffff, 1.2); scene.add(sunLight);
 
-        const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
-        ground.rotation.x = -Math.PI / 2;
-        scene.add(ground);
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+        ground.rotation.x = -Math.PI / 2; scene.add(ground);
 
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 1.7, 10); 
+        const park = new THREE.Mesh(new THREE.CircleGeometry(80, 32), new THREE.MeshStandardMaterial({ color: 0x14532d }));
+        park.rotation.x = -Math.PI / 2; park.position.y = 0.05; scene.add(park);
+
+        for (let i = 0; i < 15; i++) {
+            const angle = (i / 15) * Math.PI * 2;
+            createStreetLamp(Math.cos(angle) * 70, Math.sin(angle) * 70);
+        }
+
+        for (let i = 0; i < 40; i++) {
+            const dist = 140 + Math.random() * 300;
+            const angle = Math.random() * Math.PI * 2;
+            createDetailedBuilding(Math.cos(angle) * dist, Math.sin(angle) * dist, 15+Math.random()*15, 30+Math.random()*150, 15+Math.random()*15);
+        }
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        createHouse(-10, -10, 0x475569);
-        createHouse(15, -5, 0x334155);
-        for(let i=0; i<30; i++) createTree(Math.random()*100-50, Math.random()*100-50);
-
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, EYE_HEIGHT, 110);
         clock = new THREE.Clock();
-        window.addEventListener('resize', onWindowResize);
-        
-        document.addEventListener('keydown', (e) => {
-            if(e.code === 'Enter' && document.activeElement !== document.getElementById('chat-input')) {
-                document.getElementById('chat-input').focus();
-            }
-            updateKey(e.code, true);
+
+        const initAuth = async () => {
+            await signInAnonymously(auth);
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUser = user;
+                    document.getElementById('status-overlay').style.opacity = '0';
+                    setTimeout(() => document.getElementById('status-overlay').remove(), 1000);
+                    startChatSync();
+                }
+            });
+        };
+        initAuth();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
+
+        renderer.domElement.onclick = () => {
+            if(document.activeElement !== document.getElementById('chat-input')) {
+                renderer.domElement.requestPointerLock();
+            }
+        };
+
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') sendChatMessage();
+        });
+
+        document.addEventListener('keydown', (e) => updateKey(e.code, true));
         document.addEventListener('keyup', (e) => updateKey(e.code, false));
-        
         document.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement) {
                 yaw -= e.movementX * 0.002;
@@ -183,164 +350,51 @@
             }
         });
 
-        renderer.domElement.onclick = () => {
-            if(document.activeElement !== document.getElementById('chat-input')) renderer.domElement.requestPointerLock();
-        };
-
-        // RULE 3: Auth Before Queries
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) { 
-                console.error("Auth Error:", err);
-                document.getElementById('status-text').innerText = "인증 오류가 발생했습니다. 새로고침 해주세요.";
-            }
-        };
-
-        await initAuth();
-        
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                document.getElementById('status-overlay').style.display = 'none';
-                cleanOldData(); 
-                setInterval(cleanOldData, 15 * 60 * 1000);
-                startChatSync();
-            }
-        });
-
-        document.getElementById('chat-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendChatMessage();
-        });
-        
         animate();
-    }
-
-    async function cleanOldData() {
-        if (!currentUser) return;
-        // RULE 1: Strict Paths
-        const chatCol = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
-        try {
-            const snap = await getDocs(chatCol);
-            const now = Date.now();
-            const fifteenMinutesInMs = 15 * 60 * 1000;
-            
-            snap.forEach(async (document) => {
-                const data = document.data();
-                if (data.time && (now - data.time.toMillis() > fifteenMinutesInMs)) {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'chats', document.id));
-                }
-            });
-        } catch (e) {
-            console.warn("Cleanup log:", e.message);
-        }
-    }
-
-    function startChatSync() {
-        if (!currentUser) return;
-        // RULE 1 & RULE 2: Simple query, no orderBy to avoid index requirement
-        const chatCol = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
-        
-        onSnapshot(chatCol, (snap) => {
-            const newMessages = [];
-            snap.forEach(doc => {
-                const data = doc.data();
-                if (!displayedMessageIds.has(doc.id)) {
-                    newMessages.push({ id: doc.id, ...data });
-                    displayedMessageIds.add(doc.id);
-                }
-            });
-
-            // RULE 2: Sort in memory
-            newMessages.sort((a, b) => (a.time?.toMillis() || 0) - (b.time?.toMillis() || 0));
-            newMessages.forEach(m => appendChatUI(m));
-        }, (err) => {
-            console.error("Snapshot Error:", err);
-        });
-    }
-
-    async function sendChatMessage() {
-        if (!currentUser) {
-            console.error("No authenticated user");
-            return;
-        }
-        
-        const input = document.getElementById('chat-input');
-        const text = input.value.trim();
-        if (!text) return;
-
-        // 전송 중 상태 표시
-        input.disabled = true;
-        const originalPlaceholder = input.placeholder;
-        input.placeholder = "전송 중...";
-
-        try {
-            const chatCol = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
-            await addDoc(chatCol, {
-                uid: currentUser.uid.substring(0, 5),
-                text: text,
-                time: serverTimestamp() // 반드시 serverTimestamp 사용
-            });
-            input.value = '';
-        } catch(e) { 
-            console.error("Send Error Details:", e);
-            alert("메시지 전송에 실패했습니다: " + e.message);
-        } finally {
-            input.disabled = false;
-            input.placeholder = originalPlaceholder;
-            input.focus();
-        }
-    }
-
-    function appendChatUI(data) {
-        if(!data.text) return;
-        const container = document.getElementById('chat-messages');
-        const div = document.createElement('div');
-        div.className = 'msg-item';
-        div.innerHTML = `<span class="msg-user">이웃(${data.uid})</span><span class="msg-text">${data.text}</span>`;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
-        
-        if (container.children.length > 25) {
-            container.removeChild(container.firstChild);
-        }
     }
 
     function updateKey(c, p) {
         if(c==='KeyW') moveForward=p; if(c==='KeyS') moveBackward=p;
         if(c==='KeyA') moveLeft=p; if(c==='KeyD') moveRight=p;
+        if(c==='ShiftLeft') isSprinting=p;
     }
 
-    function onWindowResize() {
-        if (!camera || !renderer) return;
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+    function checkCollision(pos) {
+        for (const obs of obstacles) {
+            if (obs.type === 'box') {
+                if (pos.x > obs.minX && pos.x < obs.maxX && pos.z > obs.minZ && pos.z < obs.maxZ) return true;
+            } else {
+                const dx = pos.x - obs.x, dz = pos.z - obs.z;
+                if (Math.sqrt(dx*dx + dz*dz) < obs.radius) return true;
+            }
+        }
+        return false;
     }
 
     function animate() {
         requestAnimationFrame(animate);
         const delta = clock.getDelta();
-        if (document.pointerLockElement && camera) {
+        updateDayNightCycle(delta);
+
+        if (document.pointerLockElement) {
+            const speed = (isSprinting ? 15 : 7) * delta;
             const dir = new THREE.Vector3();
-            if(moveForward) dir.z -= 1; if(moveBackward) dir.z += 1;
-            if(moveLeft) dir.x -= 1; if(moveRight) dir.x += 1;
-            if(dir.length() > 0) {
+            if (moveForward) dir.z -= 1; if (moveBackward) dir.z += 1;
+            if (moveLeft) dir.x -= 1; if (moveRight) dir.x += 1;
+            
+            if (dir.length() > 0) {
                 dir.normalize().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), yaw));
-                camera.position.add(dir.multiplyScalar(7 * delta));
+                const nextX = camera.position.clone().add(new THREE.Vector3(dir.x * speed, 0, 0));
+                const nextZ = camera.position.clone().add(new THREE.Vector3(0, 0, dir.z * speed));
+                if (!checkCollision(nextX)) camera.position.x = nextX.x;
+                if (!checkCollision(nextZ)) camera.position.z = nextZ.z;
             }
-            camera.position.y = 1.7;
             camera.rotation.set(0,0,0);
             camera.rotateY(yaw); camera.rotateX(pitch);
         }
-        if (renderer && scene && camera) {
-            renderer.render(scene, camera);
-        }
+        renderer.render(scene, camera);
     }
+
     window.onload = init;
 </script>
 </body>

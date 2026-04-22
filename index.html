@@ -3,501 +3,245 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 바다 물총 대전 - 부위별 대미지</title>
+    <title>3D 마을 광장 - 스폰 수정 버전</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Pretendard', sans-serif; }
+        body { margin: 0; overflow: hidden; font-family: 'Pretendard', sans-serif; background: #0f172a; }
         canvas { display: block; }
         #ui {
             position: absolute;
-            top: 20px;
-            left: 20px;
+            top: 20px; left: 20px; right: 20px;
+            pointer-events: none;
             color: white;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-            pointer-events: none;
-            width: calc(100% - 40px);
+            z-index: 10;
         }
-        #crosshair {
+        #chat-container {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255,255,255,0.9);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
+            bottom: 20px; left: 20px;
+            width: 380px;
+            max-height: 450px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            pointer-events: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        #crosshair::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 4px;
-            height: 4px;
-            background: #ff3300;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            font-size: 14px;
+            color: #f1f5f9;
+            max-height: 350px;
         }
-        #status-msg {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.95);
+        #chat-input-container {
+            display: flex;
+            padding: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        #chat-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
-            padding: 40px;
-            border-radius: 20px;
-            display: none;
-            text-align: center;
-            z-index: 100;
-            min-width: 320px;
-            border: 2px solid #333;
+            padding: 10px 14px;
+            border-radius: 8px;
+            outline: none;
+            font-size: 14px;
         }
-        #damage-flash {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 0, 0, 0);
-            pointer-events: none;
-            transition: background 0.05s;
-            z-index: 50;
-        }
-        .hp-bar-outer {
-            width: 220px;
-            height: 14px;
-            background: rgba(0,0,0,0.7);
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 6px;
-        }
-        #hp-fill {
-            width: 100%;
-            height: 100%;
-            background: #2ecc71;
-            transition: width 0.15s ease-out;
-        }
-        #headshot-alert {
-            position: absolute;
-            top: 60%;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #ffcc00;
-            font-weight: 900;
-            font-style: italic;
-            font-size: 2rem;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
+        .msg-item { margin-bottom: 10px; line-height: 1.5; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .msg-user { font-weight: 800; color: #818cf8; margin-right: 6px; }
+        #status-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #0f172a; display: flex; align-items: center; justify-content: center;
+            z-index: 100; color: white;
         }
     </style>
 </head>
 <body>
 
-<div id="damage-flash"></div>
-<div id="headshot-alert">HEADSHOT!</div>
+<div id="status-overlay">
+    <div class="text-center">
+        <div class="text-3xl font-black mb-2 tracking-tighter text-indigo-400">TOWN SQUARE</div>
+        <div id="status-text" class="text-sm opacity-60">안전하게 마을로 진입 중...</div>
+    </div>
+</div>
+
 <div id="ui">
     <div class="flex justify-between items-start">
         <div>
-            <h1 class="text-3xl font-black italic tracking-tighter text-cyan-400">SPLASH ARENA</h1>
-            <div id="online-count" class="text-sm font-bold text-white/80">Connecting...</div>
-            <div class="mt-4 bg-black/40 p-3 rounded-lg backdrop-blur-sm border border-white/10">
-                <span class="text-[10px] font-bold uppercase tracking-widest text-green-400">Combat Health Status</span>
-                <div class="hp-bar-outer">
-                    <div id="hp-fill"></div>
-                </div>
-            </div>
+            <h1 class="text-2xl font-black text-indigo-400">TOWN CHAT</h1>
+            <div class="text-xs opacity-70">마을 스폰 지점 수정 완료</div>
         </div>
-        <div class="text-right">
-            <div id="score-board" class="text-5xl font-black text-yellow-400 leading-none">0</div>
-            <div class="text-[10px] uppercase font-bold tracking-widest text-white/50 mt-1">Kill Points</div>
-            <div id="ammo-ui" class="mt-3 text-lg font-mono font-bold text-blue-300 bg-blue-900/30 px-3 py-1 rounded">30 / 30</div>
+        <div class="text-right text-xs space-y-1 bg-black/30 p-3 rounded-lg backdrop-blur-md">
+            <p><span class="font-bold text-indigo-300">W,A,S,D</span> 이동 | <span class="font-bold text-indigo-300">Enter</span> 채팅</p>
         </div>
     </div>
 </div>
 
-<div id="crosshair"></div>
-<div id="status-msg">
-    <div id="msg-text" class="text-2xl font-bold mb-6 italic">...</div>
-    <div id="waiting-spinner" class="h-12 w-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-    <button id="retry-btn" class="mt-8 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black px-10 py-4 rounded-xl shadow-lg transition-all hidden" onclick="location.reload()">RE-JOIN MATCH</button>
+<div id="chat-container">
+    <div id="chat-messages"></div>
+    <div id="chat-input-container">
+        <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." maxlength="50">
+    </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc, updateDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyDq2XKX-WD5Igl9GxoQ7lxiyjdZoXxEl_E",
-        authDomain: "watergun-2c1d9.firebaseapp.com",
-        projectId: "watergun-2c1d9",
-        storageBucket: "watergun-2c1d9.firebasestorage.app",
-        messagingSenderId: "186215519097",
-        appId: "1:186215519097:web:542176191999aee8f115a8"
-    };
+    const firebaseConfig = JSON.parse('{"apiKey": "AIzaSyDq2XKX-WD5Igl9GxoQ7lxiyjdZoXxEl_E", "authDomain": "watergun-2c1d9.firebaseapp.com", "projectId": "watergun-2c1d9", "storageBucket": "watergun-2c1d9.firebasestorage.app", "messagingSenderId": "186215519097", "appId": "1:186215519097:web:542176191999aee8f115a8"}');
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    const appId = "water-arena-v5"; // Version up for new damage logic
+    const appId = "town-plaza-v1";
 
     let scene, camera, renderer, clock;
-    let players = {};
+    let userId = null;
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
     let yaw = 0, pitch = 0;
-    let userId = null;
-    let score = 0;
-    let hp = 100;
-    let isGameOver = false;
-    let isWaiting = true;
-    let myGun;
 
-    const MAX_AMMO = 30;
-    let ammo = MAX_AMMO;
-    let isReloading = false;
-    const ISLAND_SIZE = 70;
-    const MAX_PLAYERS = 30;
-
-    // Damage settings
-    const DAMAGE_BODY = 10;
-    const DAMAGE_HEAD = 25;
-
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    function playSound(freq, type = 'sine', duration = 0.1, vol = 0.2) {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        try {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(freq/2, audioCtx.currentTime + duration);
-            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + duration);
-        } catch(e) {}
+    // 마을 에셋 생성 함수들
+    function createTree(x, z) {
+        const group = new THREE.Group();
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 1.5), new THREE.MeshStandardMaterial({ color: 0x4d2d1e }));
+        trunk.position.y = 0.75;
+        const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2.5, 8), new THREE.MeshStandardMaterial({ color: 0x1a4d2e }));
+        leaves.position.y = 2.5;
+        group.add(trunk, leaves);
+        group.position.set(x, 0, z);
+        scene.add(group);
     }
 
-    function createWaterGun() {
-        const gunGroup = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 0.6), new THREE.MeshStandardMaterial({ color: 0x0088ff }));
-        gunGroup.add(body);
-        const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.4, 16), new THREE.MeshStandardMaterial({ color: 0xccffff, transparent: true, opacity: 0.7 }));
-        tank.rotation.x = Math.PI / 2; tank.position.y = 0.12; tank.position.z = -0.1;
-        gunGroup.add(tank);
-        const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 8), new THREE.MeshStandardMaterial({ color: 0x333333 }));
-        nozzle.rotation.x = Math.PI / 2; nozzle.position.z = -0.35;
-        gunGroup.add(nozzle);
-        return gunGroup;
+    function createHouse(x, z, color) {
+        const group = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 4), new THREE.MeshStandardMaterial({ color: color }));
+        body.position.y = 2;
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(3.5, 2, 4), new THREE.MeshStandardMaterial({ color: 0x7c2d12 }));
+        roof.rotation.y = Math.PI / 4;
+        roof.position.y = 5;
+        group.add(body, roof);
+        group.position.set(x, 0, z);
+        scene.add(group);
     }
 
     async function init() {
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xa3e4ff);
-        scene.fog = new THREE.Fog(0xa3e4ff, 60, 250);
+        scene.background = new THREE.Color(0x0f172a);
+        scene.fog = new THREE.Fog(0x0f172a, 10, 100);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-        scene.add(ambientLight);
-        const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        sunLight.position.set(50, 150, 50);
-        scene.add(sunLight);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const sun = new THREE.DirectionalLight(0xffffff, 0.6);
+        sun.position.set(10, 20, 10);
+        scene.add(sun);
 
+        // 바닥을 먼저 확실히 생성 (Y=0 지점)
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(1000, 1000), 
+            new THREE.MeshStandardMaterial({ color: 0x1e293b })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = 0;
+        scene.add(ground);
+
+        // 초기 카메라 위치 설정 (Y=1.7로 지면보다 확실히 위에 둠)
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        myGun = createWaterGun();
-        scene.add(myGun);
-        myGun.visible = false;
+        camera.position.set(0, 1.7, 10); 
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
-        const islandGeo = new THREE.CircleGeometry(ISLAND_SIZE, 64);
-        const islandMat = new THREE.MeshStandardMaterial({ color: 0xffe4b5, roughness: 0.9 });
-        const island = new THREE.Mesh(islandGeo, islandMat);
-        island.rotation.x = -Math.PI / 2;
-        scene.add(island);
-
-        const seaGeo = new THREE.PlaneGeometry(4000, 4000);
-        const seaMat = new THREE.MeshStandardMaterial({ color: 0x0077be, transparent: true, opacity: 0.75 });
-        const sea = new THREE.Mesh(seaGeo, seaMat);
-        sea.rotation.x = -Math.PI / 2;
-        sea.position.y = -0.7;
-        scene.add(sea);
+        // 마을 꾸미기
+        createHouse(-10, -10, 0x475569);
+        createHouse(15, -5, 0x334155);
+        for(let i=0; i<20; i++) {
+            createTree(Math.random()*80-40, Math.random()*80-40);
+        }
 
         clock = new THREE.Clock();
 
         window.addEventListener('resize', onWindowResize);
-        document.addEventListener('keydown', (e) => updateKey(e.code, true));
+        document.addEventListener('keydown', (e) => {
+            if(e.code === 'Enter') document.getElementById('chat-input').focus();
+            updateKey(e.code, true);
+        });
         document.addEventListener('keyup', (e) => updateKey(e.code, false));
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mousedown', (e) => { if(e.button === 0) shootWater(); });
-        
-        window.addEventListener('beforeunload', () => {
-            if(userId) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', userId));
+        document.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement) {
+                yaw -= e.movementX * 0.002;
+                pitch = Math.max(-1.5, Math.min(1.5, pitch - e.movementY * 0.002));
+            }
         });
 
         renderer.domElement.onclick = () => {
-            if (!isGameOver && !isWaiting) renderer.domElement.requestPointerLock();
+            if(document.activeElement !== document.getElementById('chat-input')) {
+                renderer.domElement.requestPointerLock();
+            }
         };
 
-        showStatus("CONNECTING TO ARENA...", true);
-        await signInAnonymously(auth);
-        
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                userId = user.uid;
-                startNetwork();
-            }
+        try {
+            await signInAnonymously(auth);
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    document.getElementById('status-overlay').style.display = 'none';
+                    startChatSync();
+                }
+            });
+        } catch (e) { console.error(e); }
+
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendChatMessage();
         });
 
         animate();
     }
 
-    function startNetwork() {
-        const playersCol = collection(db, 'artifacts', appId, 'public', 'data', 'players');
-        
-        onSnapshot(playersCol, (snapshot) => {
-            document.getElementById('online-count').innerText = `LIVE: ${snapshot.size} / ${MAX_PLAYERS}`;
-            
-            snapshot.docChanges().forEach((change) => {
-                const data = change.doc.data();
-                
-                if (data.id === userId) {
-                    if (data.hp !== undefined && data.hp < hp) {
-                        flashDamage();
-                        hp = data.hp;
-                        updateHPUI();
-                        if (hp <= 0) die("물총 공격에 탈락했습니다!");
-                    }
-                    return;
-                }
-
-                if (change.type === "added") {
-                    createOtherPlayer(data);
-                } else if (change.type === "modified") {
-                    updateOtherPlayer(data);
-                } else if (change.type === "removed") {
-                    removeOtherPlayer(data.id);
-                }
-            });
-
-            snapshot.docs.forEach(async (docSnap) => {
-                const p = docSnap.data();
-                if (p.lastSeen && p.id !== userId) {
-                    const lastTime = p.lastSeen.toMillis ? p.lastSeen.toMillis() : Date.now();
-                    if (Date.now() - lastTime > 7000) {
-                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', p.id)).catch(()=>{});
-                    }
-                }
-            });
-
-            const amIIn = snapshot.docs.some(doc => doc.id === userId);
-            if (!amIIn && !isGameOver) {
-                if (snapshot.size < MAX_PLAYERS) joinGame();
-                else showStatus("ARENA FULL - WAITING...", true);
-            } else if (amIIn) {
-                hideStatus();
-                isWaiting = false;
-                myGun.visible = true;
-            }
+    function startChatSync() {
+        const chatCol = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
+        onSnapshot(chatCol, (snap) => {
+            const newDocs = snap.docChanges().filter(c => c.type === "added").map(c => c.doc.data());
+            newDocs.sort((a, b) => (a.time?.toMillis() || 0) - (b.time?.toMillis() || 0));
+            newDocs.forEach(m => appendChatUI(m));
         });
     }
 
-    async function joinGame() {
-        const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', userId);
-        const startPos = { 
-            x: (Math.random()-0.5) * ISLAND_SIZE * 0.5, 
-            y: 1.6, 
-            z: (Math.random()-0.5) * ISLAND_SIZE * 0.5 
-        };
-        camera.position.set(startPos.x, startPos.y, startPos.z);
-        hp = 100;
-        score = 0;
-        updateHPUI();
-        
-        await setDoc(playerRef, { 
-            id: userId, 
-            pos: startPos, 
-            rot: 0, 
-            score: 0, 
-            hp: 100, 
-            lastSeen: serverTimestamp() 
-        });
-        
-        setInterval(async () => {
-            if (isGameOver || isWaiting) return;
-            await updateDoc(playerRef, {
-                pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
-                rot: yaw,
-                lastSeen: serverTimestamp()
-            }).catch(()=>{});
-        }, 120);
-    }
-
-    function createOtherPlayer(data) {
-        if (players[data.id]) return;
-        const group = new THREE.Group();
-        
-        // Head hitbox
-        const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshStandardMaterial({ color: 0xe74c3c }));
-        head.position.y = 1.6;
-        head.userData = { targetId: data.id, type: 'head' }; // Type added
-        group.add(head);
-        
-        // Body hitbox
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.1, 16), new THREE.MeshStandardMaterial({ color: 0x2c3e50 }));
-        body.position.y = 0.8;
-        body.userData = { targetId: data.id, type: 'body' }; // Type added
-        group.add(body);
-        
-        const gun = createWaterGun();
-        gun.position.set(0.4, 1.2, -0.4);
-        group.add(gun);
-        
-        group.position.set(data.pos.x, 0, data.pos.z);
-        scene.add(group);
-        players[data.id] = { mesh: group, id: data.id };
-    }
-
-    function updateOtherPlayer(data) {
-        const p = players[data.id];
-        if (p) {
-            p.mesh.position.lerp(new THREE.Vector3(data.pos.x, 0, data.pos.z), 0.3);
-            p.mesh.rotation.y = data.rot;
-        }
-    }
-
-    function removeOtherPlayer(id) {
-        if (players[id]) {
-            scene.remove(players[id].mesh);
-            delete players[id];
-        }
-    }
-
-    async function shootWater() {
-        if (!document.pointerLockElement || isGameOver || isWaiting || isReloading) return;
-        if (ammo <= 0) { reload(); return; }
-
-        ammo--;
-        document.getElementById('ammo-ui').innerText = `${ammo} / ${MAX_AMMO}`;
-        playSound(450, 'sine', 0.08, 0.2);
-        
-        const dir = new THREE.Vector3();
-        camera.getWorldDirection(dir);
-        
-        const stream = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.02, 0.02, 30, 6), 
-            new THREE.MeshBasicMaterial({ color: 0x00eaff, transparent: true, opacity: 0.6 })
-        );
-        stream.position.copy(camera.position).add(dir.clone().multiplyScalar(15));
-        stream.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-        scene.add(stream);
-        setTimeout(() => scene.remove(stream), 30);
-
-        const raycaster = new THREE.Raycaster(camera.position, dir);
-        const list = [];
-        Object.values(players).forEach(p => {
-            p.mesh.children.forEach(child => {
-                if(child.userData.targetId) list.push(child);
-            });
-        });
-
-        const intersects = raycaster.intersectObjects(list);
-        if (intersects.length > 0) {
-            const hitData = intersects[0].object.userData;
-            if (hitData.targetId) {
-                const damageAmount = hitData.type === 'head' ? DAMAGE_HEAD : DAMAGE_BODY;
-                applyDamage(hitData.targetId, damageAmount, hitData.type);
-            }
-        }
-    }
-
-    async function applyDamage(targetId, amount, type) {
-        const targetRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', targetId);
-        
+    async function sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        input.blur();
         try {
-            await updateDoc(targetRef, {
-                hp: increment(-amount)
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'chats'), {
+                uid: userId.substring(0, 5),
+                text: text,
+                time: serverTimestamp()
             });
-            
-            // Score based on damage
-            score += amount;
-            document.getElementById('score-board').innerText = score;
-
-            // Visual feedback for headshot
-            if (type === 'head') {
-                showHeadshotAlert();
-                playSound(1200, 'sine', 0.05, 0.15);
-            } else {
-                playSound(900, 'sine', 0.05, 0.1);
-            }
-        } catch (e) {
-            console.error("Damage failed", e);
-        }
+        } catch(e) {}
     }
 
-    function showHeadshotAlert() {
-        const alert = document.getElementById('headshot-alert');
-        alert.style.opacity = "1";
-        setTimeout(() => alert.style.opacity = "0", 600);
+    function appendChatUI(data) {
+        if(!data.text) return;
+        const div = document.createElement('div');
+        div.className = 'msg-item';
+        div.innerHTML = `<span class="msg-user">이웃(${data.uid})</span><span class="msg-text">${data.text}</span>`;
+        const container = document.getElementById('chat-messages');
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
     }
 
-    function flashDamage() {
-        const f = document.getElementById('damage-flash');
-        f.style.background = "rgba(255, 0, 0, 0.6)";
-        setTimeout(() => f.style.background = "rgba(255, 0, 0, 0)", 80);
-        playSound(100, 'sawtooth', 0.15, 0.4);
-    }
-
-    function updateHPUI() {
-        const fill = document.getElementById('hp-fill');
-        fill.style.width = Math.max(0, hp) + "%";
-        if (hp <= 30) fill.style.background = "#ff4757";
-        else if (hp <= 60) fill.style.background = "#ffa502";
-        else fill.style.background = "#2ecc71";
-    }
-
-    function reload() {
-        if (isReloading || ammo === MAX_AMMO) return;
-        isReloading = true;
-        document.getElementById('ammo-ui').innerText = "RELOADING...";
-        playSound(250, 'square', 0.4, 0.1);
-        setTimeout(() => {
-            ammo = MAX_AMMO;
-            isReloading = false;
-            document.getElementById('ammo-ui').innerText = `${ammo} / ${MAX_AMMO}`;
-        }, 1200);
-    }
-
-    function die(reason) {
-        if (isGameOver) return;
-        isGameOver = true;
-        showStatus(`ELIMINATED<br><span class='text-sm font-normal text-white/60'>${reason}</span>`, false);
-        document.getElementById('retry-btn').classList.remove('hidden');
-        document.exitPointerLock();
-        if (userId) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', userId)).catch(()=>{});
-    }
-
-    function updateKey(code, isPressed) {
-        if (isPressed && code === 'KeyR') reload();
-        switch(code) {
-            case 'KeyW': moveForward = isPressed; break;
-            case 'KeyS': moveBackward = isPressed; break;
-            case 'KeyA': moveLeft = isPressed; break;
-            case 'KeyD': moveRight = isPressed; break;
-        }
-    }
-
-    function onMouseMove(event) {
-        if (document.pointerLockElement && !isGameOver && !isWaiting) {
-            yaw -= event.movementX * 0.002;
-            pitch -= event.movementY * 0.002;
-            pitch = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, pitch));
-        }
+    function updateKey(c, p) {
+        if(c==='KeyW') moveForward=p; if(c==='KeyS') moveBackward=p;
+        if(c==='KeyA') moveLeft=p; if(c==='KeyD') moveRight=p;
     }
 
     function onWindowResize() {
@@ -506,53 +250,30 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    function showStatus(msg, showSpinner = false) {
-        const el = document.getElementById('status-msg');
-        el.style.display = 'block';
-        document.getElementById('msg-text').innerHTML = msg;
-        document.getElementById('waiting-spinner').style.display = showSpinner ? 'block' : 'none';
-    }
-
-    function hideStatus() {
-        document.getElementById('status-msg').style.display = 'none';
-    }
-
     function animate() {
         requestAnimationFrame(animate);
-        if (isGameOver) { renderer.render(scene, camera); return; }
-        
         const delta = clock.getDelta();
 
-        if (document.pointerLockElement && !isWaiting) {
-            const speed = 9;
+        if (document.pointerLockElement) {
             const dir = new THREE.Vector3();
-            if (moveForward) dir.z -= 1;
-            if (moveBackward) dir.z += 1;
-            if (moveLeft) dir.x -= 1;
-            if (moveRight) dir.x += 1;
-            dir.normalize().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw));
-            camera.position.add(dir.multiplyScalar(speed * delta));
+            if(moveForward) dir.z -= 1; if(moveBackward) dir.z += 1;
+            if(moveLeft) dir.x -= 1; if(moveRight) dir.x += 1;
             
-            const dist = Math.sqrt(camera.position.x**2 + camera.position.z**2);
-            if (dist > ISLAND_SIZE) {
-                camera.position.y -= 0.3;
-                if (camera.position.y < -7) die("물속으로 가라앉았습니다!");
-            } else {
-                camera.position.y = 1.6;
+            if(dir.length() > 0) {
+                dir.normalize().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), yaw));
+                camera.position.add(dir.multiplyScalar(7 * delta));
             }
-
-            camera.rotation.set(0, 0, 0);
-            camera.rotateY(yaw); 
-            camera.rotateX(pitch);
-
-            if (myGun) {
-                myGun.position.copy(camera.position);
-                myGun.quaternion.copy(camera.quaternion);
-                myGun.translateZ(-0.4); myGun.translateX(0.3); myGun.translateY(-0.32);
-            }
+            
+            // 카메라 높이 강제 고정 (지하로 떨어짐 방지)
+            camera.position.y = 1.7;
+            
+            camera.rotation.set(0,0,0);
+            camera.rotateY(yaw); camera.rotateX(pitch);
         }
+
         renderer.render(scene, camera);
     }
+
     window.onload = init;
 </script>
 </body>

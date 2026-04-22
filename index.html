@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 바다 물총 대전 - 탄창 시스템</title>
+    <title>3D 바다 물총 대전 - 멀티플레이어</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -82,9 +82,9 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc, updateDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc, updateDoc, getDocs, serverTimestamp, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // --- Configuration ---
+    // --- Firebase Configuration ---
     const firebaseConfig = JSON.parse(__firebase_config);
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -92,7 +92,7 @@
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'water-gun-island-v2';
 
     let scene, camera, renderer, clock;
-    let players = {};
+    let players = {}; // 다른 플레이어 메쉬 저장 객체
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
     let yaw = 0, pitch = 0;
     let userId = null;
@@ -101,7 +101,6 @@
     let isWaiting = true;
     let myGun;
 
-    // 탄창 시스템 변수
     const MAX_AMMO = 30;
     let ammo = MAX_AMMO;
     let isReloading = false;
@@ -243,8 +242,10 @@
     }
 
     function startQueueSystem() {
+        if (!userId) return;
         const playersCol = collection(db, 'artifacts', appId, 'public', 'data', 'players');
         
+        // 실시간 플레이어 리스트 구독
         onSnapshot(playersCol, (snapshot) => {
             const currentCount = snapshot.size;
             const amIPlaying = snapshot.docs.some(doc => doc.id === userId);
@@ -264,13 +265,21 @@
                 }
             }
 
+            // 스냅샷 변화에 따라 다른 플레이어들 업데이트
             snapshot.docChanges().forEach((change) => {
                 const data = change.doc.data();
                 if (data.id === userId) return;
-                if (change.type === "added") createOtherPlayer(data);
-                else if (change.type === "modified") updateOtherPlayer(data);
-                else if (change.type === "removed") removeOtherPlayer(data.id);
+
+                if (change.type === "added") {
+                    createOtherPlayer(data);
+                } else if (change.type === "modified") {
+                    updateOtherPlayer(data);
+                } else if (change.type === "removed") {
+                    removeOtherPlayer(data.id);
+                }
             });
+        }, (error) => {
+            console.error("Firestore Error:", error);
         });
     }
 
@@ -279,27 +288,42 @@
         const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', userId);
         
         const spawnRange = ISLAND_SIZE * 0.6;
+        const startPos = { 
+            x: (Math.random()-0.5)*spawnRange, 
+            y: 1.6, 
+            z: (Math.random()-0.5)*spawnRange 
+        };
+        
+        camera.position.set(startPos.x, startPos.y, startPos.z);
+
         await setDoc(playerRef, {
             id: userId,
-            pos: { x: (Math.random()-0.5)*spawnRange, y: 1, z: (Math.random()-0.5)*spawnRange },
+            pos: startPos,
             rot: 0,
             score: 0,
             lastSeen: serverTimestamp()
         });
 
+        // 위치 동기화 루프 시작 (150ms 간격)
         startPositionSync(playerRef);
+        
+        // 탭을 닫거나 브라우저를 나갈 때 데이터 삭제
         window.addEventListener('beforeunload', () => deleteDoc(playerRef));
     }
 
     function startPositionSync(playerRef) {
-        setInterval(() => {
-            if (isGameOver || isWaiting) return;
-            updateDoc(playerRef, {
-                pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
-                rot: yaw,
-                score: score,
-                lastSeen: serverTimestamp()
-            });
+        setInterval(async () => {
+            if (isGameOver || isWaiting || !auth.currentUser) return;
+            try {
+                await updateDoc(playerRef, {
+                    pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+                    rot: yaw,
+                    score: score,
+                    lastSeen: serverTimestamp()
+                });
+            } catch (e) {
+                console.error("Sync Error", e);
+            }
         }, 150);
     }
 
@@ -316,25 +340,37 @@
 
     function createOtherPlayer(data) {
         if (players[data.id]) return;
+        
         const group = new THREE.Group();
+        
+        // 머리
         const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshStandardMaterial({ color: 0xff4444 }));
         head.position.y = 1.6;
         group.add(head);
+        
+        // 몸통
         const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0x333333 }));
         body.position.y = 0.8;
         group.add(body);
+        
+        // 물총
         const gun = createWaterGun();
         gun.position.set(0.3, 1.2, -0.3);
         group.add(gun);
-        group.position.set(data.pos.x, data.pos.y - 1, data.pos.z);
+        
+        // 초기 위치 설정
+        group.position.set(data.pos.x, data.pos.y - 1.6, data.pos.z);
         scene.add(group);
         players[data.id] = group;
     }
 
     function updateOtherPlayer(data) {
-        if (players[data.id]) {
-            players[data.id].position.lerp(new THREE.Vector3(data.pos.x, data.pos.y - 1, data.pos.z), 0.2);
-            players[data.id].rotation.y = data.rot;
+        const playerMesh = players[data.id];
+        if (playerMesh) {
+            // 위치 보간 (Lerp)으로 부드럽게 이동
+            const targetPos = new THREE.Vector3(data.pos.x, data.pos.y - 1.6, data.pos.z);
+            playerMesh.position.lerp(targetPos, 0.2);
+            playerMesh.rotation.y = data.rot;
         }
     }
 
@@ -359,7 +395,7 @@
             isReloading = false;
             ammoDisplay.innerText = `탄약: ${ammo} / ${MAX_AMMO}`;
             ammoDisplay.classList.remove('reloading');
-        }, 1500); // 1.5초 재장전 시간
+        }, 1500);
     }
 
     function shootWater() {
@@ -367,7 +403,6 @@
         
         if (isReloading) return;
         if (ammo <= 0) {
-            // 탄약 부족 시 효과음이나 텍스트 표시 가능
             const ammoDisplay = document.getElementById('ammo-ui');
             ammoDisplay.innerText = "탄약 부족! (R키로 재장전)";
             ammoDisplay.classList.add('reloading');
@@ -376,19 +411,26 @@
 
         ammo--;
         document.getElementById('ammo-ui').innerText = `탄약: ${ammo} / ${MAX_AMMO}`;
-        document.getElementById('ammo-ui').classList.remove('reloading');
 
         playShootSound();
         const dir = new THREE.Vector3();
         camera.getWorldDirection(dir);
-        const stream = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.02, 12, 8), new THREE.MeshBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0.6 }));
+        
+        // 물줄기 이펙트
+        const stream = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.04, 0.02, 12, 8), 
+            new THREE.MeshBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0.6 })
+        );
         stream.position.copy(camera.position).add(dir.clone().multiplyScalar(6));
         stream.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
         scene.add(stream);
         setTimeout(() => scene.remove(stream), 60);
+
+        // 레이캐스팅 판정
         const raycaster = new THREE.Raycaster(camera.position, dir);
-        const targets = Object.values(players);
-        const intersects = raycaster.intersectObjects(targets, true);
+        const otherPlayerMeshes = Object.values(players);
+        const intersects = raycaster.intersectObjects(otherPlayerMeshes, true);
+        
         if (intersects.length > 0) {
             score += 10;
             document.getElementById('score-board').innerText = `점수: ${score}`;
@@ -435,9 +477,11 @@
             if (moveBackward) dir.z += 1;
             if (moveLeft) dir.x -= 1;
             if (moveRight) dir.x += 1;
+            
             dir.normalize().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw));
             camera.position.add(dir.multiplyScalar(speed * delta));
             
+            // 섬 경계 및 낙사 판정
             const distFromCenter = Math.sqrt(camera.position.x**2 + camera.position.z**2);
             if (distFromCenter > ISLAND_SIZE) {
                 if (camera.position.y === 1.6) playSplashSound();
@@ -445,19 +489,27 @@
                 if (camera.position.y < -3) {
                     showStatus("첨벙! 탈락했어. 새로고침해서 대기열에 다시 합류해!");
                     isGameOver = true;
+                    if (userId) {
+                        const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', userId);
+                        deleteDoc(playerRef);
+                    }
                     document.exitPointerLock();
                 }
-            } else { camera.position.y = 1.6; }
+            } else { 
+                camera.position.y = 1.6; 
+            }
 
             camera.rotation.set(0, 0, 0);
-            camera.rotateY(yaw); camera.rotateX(pitch);
+            camera.rotateY(yaw); 
+            camera.rotateX(pitch);
 
             if (myGun) {
                 myGun.position.copy(camera.position);
                 myGun.quaternion.copy(camera.quaternion);
-                myGun.translateZ(-0.4); myGun.translateX(0.25); myGun.translateY(-0.25);
+                myGun.translateZ(-0.4); 
+                myGun.translateX(0.25); 
+                myGun.translateY(-0.25);
                 
-                // 재장전 중 총기 흔들림 애니메이션 (옵션)
                 if (isReloading) {
                     myGun.position.y += Math.sin(Date.now() * 0.01) * 0.02;
                 }

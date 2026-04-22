@@ -16,17 +16,29 @@
             color: white;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
             pointer-events: none;
+            width: 100%;
         }
         #crosshair {
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 20px;
-            height: 20px;
-            border: 2px solid white;
+            width: 24px;
+            height: 24px;
+            border: 2px solid rgba(255,255,255,0.8);
             border-radius: 50%;
             transform: translate(-50%, -50%);
             pointer-events: none;
+        }
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 4px;
+            background: red;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
         }
         #status-msg {
             position: absolute;
@@ -41,66 +53,79 @@
             text-align: center;
             z-index: 100;
             min-width: 320px;
-            max-width: 80%;
         }
-        .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top: 4px solid #fff;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 10px auto;
+        #damage-flash {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 0, 0, 0);
+            pointer-events: none;
+            transition: background 0.1s;
+            z-index: 50;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #ammo-ui {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #00ccff;
+        .hp-bar-container {
+            width: 200px;
+            height: 20px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 5px;
         }
-        .reloading {
-            color: #ffcc00 !important;
-            animation: blink 0.5s infinite;
+        #hp-fill {
+            width: 100%;
+            height: 100%;
+            background: #4ade80;
+            transition: width 0.3s;
         }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     </style>
 </head>
 <body>
 
+<div id="damage-flash"></div>
 <div id="ui">
-    <h1 class="text-2xl font-bold">🏝️ 대형 아일랜드 물총 대전</h1>
-    <div id="score-board" class="mt-2 text-lg">점수: 0</div>
-    <div id="ammo-ui" class="mt-1">탄약: 30 / 30</div>
-    <div id="online-count" class="text-sm opacity-80">접속 중인 플레이어: 0 / 30</div>
+    <div class="flex justify-between items-start pr-10">
+        <div>
+            <h1 class="text-2xl font-bold">🏝️ 아일랜드 물총 대전</h1>
+            <div id="online-count" class="text-sm opacity-80">접속 중: 0 / 30</div>
+            <div class="mt-4">
+                <span class="text-sm font-bold">내 체력 (HP)</span>
+                <div class="hp-bar-container">
+                    <div id="hp-fill"></div>
+                </div>
+            </div>
+        </div>
+        <div class="text-right">
+            <div id="score-board" class="text-2xl font-black text-yellow-400">0 점</div>
+            <div id="ammo-ui" class="text-xl font-bold text-blue-300">탄약: 30 / 30</div>
+        </div>
+    </div>
 </div>
 
 <div id="crosshair"></div>
 <div id="status-msg">
     <div id="msg-text">서버 연결 중...</div>
-    <div id="waiting-spinner" class="spinner" style="display:none;"></div>
+    <div id="waiting-spinner" class="mt-4 h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+    <button id="retry-btn" class="mt-4 bg-blue-600 px-6 py-2 rounded hidden" onclick="location.reload()">다시 시작</button>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc, updateDoc, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // --- Firebase Configuration ---
     const firebaseConfig = {
         apiKey: "AIzaSyDq2XKX-WD5Igl9GxoQ7lxiyjdZoXxEl_E",
         authDomain: "watergun-2c1d9.firebaseapp.com",
         projectId: "watergun-2c1d9",
         storageBucket: "watergun-2c1d9.firebasestorage.app",
         messagingSenderId: "186215519097",
-        appId: "1:186215519097:web:542176191999aee8f115a8",
-        measurementId: "G-0DJH6HBRG9"
+        appId: "1:186215519097:web:542176191999aee8f115a8"
     };
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    
-    const currentAppId = "watergun-survival-main";
+    const currentAppId = "watergun-survival-v2"; // 앱 아이디 변경하여 초기화
 
     let scene, camera, renderer, clock;
     let players = {};
@@ -108,6 +133,7 @@
     let yaw = 0, pitch = 0;
     let userId = null;
     let score = 0;
+    let hp = 100;
     let isGameOver = false;
     let isWaiting = true;
     let myGun;
@@ -115,54 +141,22 @@
     const MAX_AMMO = 30;
     let ammo = MAX_AMMO;
     let isReloading = false;
-    const ISLAND_SIZE = 70; 
+    const ISLAND_SIZE = 70;
     const MAX_PLAYERS = 30;
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
-    function playShootSound() {
+    function playSound(freq, type = 'triangle', duration = 0.1) {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(freq/4, audioCtx.currentTime + duration);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
         osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-    }
-
-    function playReloadSound() {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-        osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-    }
-
-    function playSplashSound() {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        const bufferSize = audioCtx.sampleRate * 0.5;
-        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buffer;
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
-        filter.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.5);
-        const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-        noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-        noise.start();
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
     }
 
     function createWaterGun() {
@@ -183,15 +177,13 @@
         scene.background = new THREE.Color(0x87ceeb);
         scene.fog = new THREE.Fog(0x87ceeb, 40, 150);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         scene.add(ambientLight);
-        const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 0.9);
         sunLight.position.set(50, 100, 50);
         scene.add(sunLight);
 
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-        camera.position.set(0, 1.6, 5);
-
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         myGun = createWaterGun();
         scene.add(myGun);
         myGun.visible = false;
@@ -201,14 +193,16 @@
         renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
+        // 아일랜드
         const islandGeo = new THREE.CircleGeometry(ISLAND_SIZE, 64);
         const islandMat = new THREE.MeshStandardMaterial({ color: 0xedc9af });
         const island = new THREE.Mesh(islandGeo, islandMat);
         island.rotation.x = -Math.PI / 2;
         scene.add(island);
 
+        // 물
         const waterGeo = new THREE.PlaneGeometry(2000, 2000);
-        const waterMat = new THREE.MeshStandardMaterial({ color: 0x0077be, transparent: true, opacity: 0.7 });
+        const waterMat = new THREE.MeshStandardMaterial({ color: 0x0077be, transparent: true, opacity: 0.6 });
         const water = new THREE.Mesh(waterGeo, waterMat);
         water.rotation.x = -Math.PI / 2;
         water.position.y = -0.5;
@@ -220,53 +214,14 @@
         document.addEventListener('keydown', (e) => updateKey(e.code, true));
         document.addEventListener('keyup', (e) => updateKey(e.code, false));
         document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mousedown', (e) => {
-            if(e.button === 0) shootWater();
-        });
+        document.addEventListener('mousedown', (e) => { if(e.button === 0) shootWater(); });
         
         renderer.domElement.onclick = () => {
-            if (!isGameOver && !isWaiting) {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                renderer.domElement.requestPointerLock();
-            }
+            if (!isGameOver && !isWaiting) renderer.domElement.requestPointerLock();
         };
 
-        // --- 인증 에러 수정: custom-token-mismatch 방어 로직 ---
-        const initAuth = async () => {
-            try {
-                showStatus("서버 인증 중...", true);
-                
-                // 1단계: 익명 로그인 시도 (가장 안전)
-                try {
-                    await signInAnonymously(auth);
-                } catch (anonError) {
-                    // 2단계: 익명 실패 시 토큰 시도 또는 상세 에러 처리
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        try {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } catch (tokenError) {
-                            console.warn("Custom token failed, retrying anonymous...");
-                            await signInAnonymously(auth);
-                        }
-                    } else {
-                        throw anonError;
-                    }
-                }
-            } catch (error) {
-                console.error("Auth Error:", error);
-                if (error.code === 'auth/configuration-not-found') {
-                    showStatus("<span class='text-red-400 font-bold'>설정 오류:</span><br>Firebase 콘솔에서 '익명 로그인'을<br>활성화해야 합니다.", false);
-                } else if (error.code === 'auth/custom-token-mismatch') {
-                    showStatus("<span class='text-yellow-400'>인증 토큰 불일치:</span><br>프로젝트 설정이 환경과 다릅니다.<br>익명 로그인을 사용합니다.", true);
-                    await signInAnonymously(auth).catch(() => {});
-                } else {
-                    showStatus("인증에 실패했습니다.<br>" + error.message, false);
-                }
-                // 치명적 에러가 아니면 계속 진행 시도
-            }
-        };
-
-        await initAuth();
+        showStatus("서버 연결 중...", true);
+        await signInAnonymously(auth).catch(err => showStatus("인증 오류: " + err.message));
         
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -279,31 +234,24 @@
     }
 
     function startQueueSystem() {
-        if (!userId) return;
         const playersCol = collection(db, 'artifacts', currentAppId, 'public', 'data', 'players');
         
         onSnapshot(playersCol, (snapshot) => {
             const currentCount = snapshot.size;
-            const amIPlaying = snapshot.docs.some(doc => doc.id === userId);
+            document.getElementById('online-count').innerText = `접속 중: ${currentCount} / ${MAX_PLAYERS}`;
             
-            document.getElementById('online-count').innerText = `접속 중인 플레이어: ${currentCount} / ${MAX_PLAYERS}`;
-
-            if (amIPlaying) {
-                hideStatus();
-                isWaiting = false;
-                myGun.visible = true;
-            } else {
-                if (currentCount < MAX_PLAYERS) {
-                    joinGame();
-                } else {
-                    showStatus("서버가 가득 찼어 (30/30).<br>자리가 나면 자동으로 입장할게!", true);
-                    isWaiting = true;
-                }
-            }
-
+            const now = Date.now();
             snapshot.docChanges().forEach((change) => {
                 const data = change.doc.data();
-                if (data.id === userId) return;
+                if (data.id === userId) {
+                    if (data.hp !== undefined && data.hp < hp) {
+                        flashDamage();
+                        hp = data.hp;
+                        updateHPUI();
+                        if (hp <= 0) die("물총에 너무 많이 맞았습니다!");
+                    }
+                    return;
+                }
 
                 if (change.type === "added") {
                     createOtherPlayer(data);
@@ -313,144 +261,175 @@
                     removeOtherPlayer(data.id);
                 }
             });
-        }, (error) => {
-            console.error("Firestore Error:", error);
-            showStatus("데이터 연결 오류.<br>Firestore 규칙 및 인덱스를 확인하세요.", false);
+
+            // 유령 플레이어 제거 (5초 이상 응답 없음)
+            snapshot.docs.forEach(docSnap => {
+                const p = docSnap.data();
+                if (p.id !== userId && p.lastSeen) {
+                    const lastTime = p.lastSeen.toMillis ? p.lastSeen.toMillis() : Date.now();
+                    if (Date.now() - lastTime > 5000) {
+                        removeOtherPlayer(p.id);
+                    }
+                }
+            });
+
+            const amIPlaying = snapshot.docs.some(doc => doc.id === userId);
+            if (!amIPlaying && !isGameOver) {
+                if (currentCount < MAX_PLAYERS) joinGame();
+                else showStatus("서버가 가득 찼습니다. 대기 중...", true);
+            } else if (amIPlaying) {
+                hideStatus();
+                isWaiting = false;
+                myGun.visible = true;
+            }
         });
     }
 
     async function joinGame() {
-        if (!userId) return;
         const playerRef = doc(db, 'artifacts', currentAppId, 'public', 'data', 'players', userId);
-        
-        const spawnRange = ISLAND_SIZE * 0.6;
-        const startPos = { 
-            x: (Math.random()-0.5)*spawnRange, 
-            y: 1.6, 
-            z: (Math.random()-0.5)*spawnRange 
-        };
-        
+        const spawnRange = ISLAND_SIZE * 0.5;
+        const startPos = { x: (Math.random()-0.5)*spawnRange, y: 1.6, z: (Math.random()-0.5)*spawnRange };
         camera.position.set(startPos.x, startPos.y, startPos.z);
-
-        try {
-            await setDoc(playerRef, {
-                id: userId,
-                pos: startPos,
-                rot: 0,
-                score: 0,
-                lastSeen: serverTimestamp()
-            });
-            startPositionSync(playerRef);
-            window.addEventListener('beforeunload', () => deleteDoc(playerRef));
-        } catch (e) {
-            console.error("Join Error:", e);
-        }
+        hp = 100;
+        updateHPUI();
+        await setDoc(playerRef, { id: userId, pos: startPos, rot: 0, score: 0, hp: 100, lastSeen: serverTimestamp() });
+        startPositionSync(playerRef);
     }
 
     function startPositionSync(playerRef) {
-        setInterval(async () => {
-            if (isGameOver || isWaiting || !auth.currentUser) return;
-            try {
-                await updateDoc(playerRef, {
-                    pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
-                    rot: yaw,
-                    score: score,
-                    lastSeen: serverTimestamp()
-                });
-            } catch (e) {}
-        }, 150);
-    }
-
-    function showStatus(msg, showSpinner = false) {
-        const el = document.getElementById('status-msg');
-        document.getElementById('msg-text').innerHTML = msg;
-        document.getElementById('waiting-spinner').style.display = showSpinner ? 'block' : 'none';
-        el.style.display = 'block';
-    }
-
-    function hideStatus() {
-        document.getElementById('status-msg').style.display = 'none';
+        const syncInterval = setInterval(async () => {
+            if (isGameOver || isWaiting) { clearInterval(syncInterval); return; }
+            await updateDoc(playerRef, {
+                pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+                rot: yaw,
+                lastSeen: serverTimestamp()
+            }).catch(() => {});
+        }, 100);
     }
 
     function createOtherPlayer(data) {
         if (players[data.id]) return;
         const group = new THREE.Group();
-        const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshStandardMaterial({ color: 0xff4444 }));
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.MeshStandardMaterial({ color: 0xff4444 }));
         head.position.y = 1.6;
         group.add(head);
-        const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.3, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0x333333 }));
-        body.position.y = 0.8;
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.9, 12), bodyMat);
+        body.position.y = 0.9;
         group.add(body);
         const gun = createWaterGun();
         gun.position.set(0.3, 1.2, -0.3);
         group.add(gun);
-        group.position.set(data.pos.x, data.pos.y - 1.6, data.pos.z);
+        group.position.set(data.pos.x, 0, data.pos.z);
         scene.add(group);
-        players[data.id] = group;
+        players[data.id] = { mesh: group, id: data.id };
     }
 
     function updateOtherPlayer(data) {
-        const playerMesh = players[data.id];
-        if (playerMesh) {
-            const targetPos = new THREE.Vector3(data.pos.x, data.pos.y - 1.6, data.pos.z);
-            playerMesh.position.lerp(targetPos, 0.2);
-            playerMesh.rotation.y = data.rot;
+        const p = players[data.id];
+        if (p) {
+            p.mesh.position.lerp(new THREE.Vector3(data.pos.x, 0, data.pos.z), 0.3);
+            p.mesh.rotation.y = data.rot;
         }
     }
 
     function removeOtherPlayer(id) {
         if (players[id]) {
-            scene.remove(players[id]);
+            scene.remove(players[id].mesh);
             delete players[id];
         }
+    }
+
+    function shootWater() {
+        if (!document.pointerLockElement || isGameOver || isWaiting || isReloading) return;
+        if (ammo <= 0) { reload(); return; }
+
+        ammo--;
+        document.getElementById('ammo-ui').innerText = `탄약: ${ammo} / ${MAX_AMMO}`;
+        playSound(400, 'triangle', 0.1);
+        
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        
+        // 물줄기 이펙트
+        const stream = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.03, 0.03, 15, 8), 
+            new THREE.MeshBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0.5 })
+        );
+        stream.position.copy(camera.position).add(dir.clone().multiplyScalar(7.5));
+        stream.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+        scene.add(stream);
+        setTimeout(() => scene.remove(stream), 50);
+
+        // 히트 판정
+        const raycaster = new THREE.Raycaster(camera.position, dir);
+        const targetMeshes = Object.values(players).map(p => p.mesh);
+        const intersects = raycaster.intersectObjects(targetMeshes, true);
+        
+        if (intersects.length > 0) {
+            let hitObject = intersects[0].object;
+            while(hitObject.parent && !hitObject.parent.type === "Scene") {
+                hitObject = hitObject.parent;
+                const hitPlayer = Object.values(players).find(p => p.mesh === hitObject);
+                if (hitPlayer) {
+                    applyDamageToOther(hitPlayer.id);
+                    break;
+                }
+            }
+        }
+    }
+
+    async function applyDamageToOther(targetId) {
+        const targetRef = doc(db, 'artifacts', currentAppId, 'public', 'data', 'players', targetId);
+        score += 10;
+        document.getElementById('score-board').innerText = `${score} 점`;
+        
+        // 상대방 HP 차감 (간단하게 하기 위해 서버 데이터 스냅샷 없이 직접 업데이트 시도)
+        onSnapshot(targetRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                const currentHP = docSnap.data().hp || 100;
+                if (currentHP > 0) {
+                    await updateDoc(targetRef, { hp: currentHP - 10 });
+                }
+            }
+        }, { once: true });
+    }
+
+    function flashDamage() {
+        const flash = document.getElementById('damage-flash');
+        flash.style.background = "rgba(255, 0, 0, 0.4)";
+        setTimeout(() => flash.style.background = "rgba(255, 0, 0, 0)", 100);
+        playSound(100, 'sawtooth', 0.2);
+    }
+
+    function updateHPUI() {
+        const fill = document.getElementById('hp-fill');
+        fill.style.width = hp + "%";
+        if (hp < 30) fill.style.background = "#ef4444";
+        else if (hp < 60) fill.style.background = "#f59e0b";
+        else fill.style.background = "#4ade80";
     }
 
     function reload() {
         if (isReloading || ammo === MAX_AMMO) return;
         isReloading = true;
-        const ammoDisplay = document.getElementById('ammo-ui');
-        ammoDisplay.innerText = "재장전 중...";
-        ammoDisplay.classList.add('reloading');
-        playReloadSound();
+        document.getElementById('ammo-ui').innerText = "재장전 중...";
+        playSound(200, 'square', 0.3);
         setTimeout(() => {
             ammo = MAX_AMMO;
             isReloading = false;
-            ammoDisplay.innerText = `탄약: ${ammo} / ${MAX_AMMO}`;
-            ammoDisplay.classList.remove('reloading');
+            document.getElementById('ammo-ui').innerText = `탄약: ${ammo} / ${MAX_AMMO}`;
         }, 1500);
     }
 
-    function shootWater() {
-        if (!document.pointerLockElement || isGameOver || isWaiting) return;
-        if (isReloading) return;
-        if (ammo <= 0) {
-            document.getElementById('ammo-ui').innerText = "탄약 부족! (R키로 재장전)";
-            document.getElementById('ammo-ui').classList.add('reloading');
-            return;
-        }
-
-        ammo--;
-        document.getElementById('ammo-ui').innerText = `탄약: ${ammo} / ${MAX_AMMO}`;
-        playShootSound();
-        
-        const dir = new THREE.Vector3();
-        camera.getWorldDirection(dir);
-        
-        const stream = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.04, 0.02, 12, 8), 
-            new THREE.MeshBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0.6 })
-        );
-        stream.position.copy(camera.position).add(dir.clone().multiplyScalar(6));
-        stream.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-        scene.add(stream);
-        setTimeout(() => scene.remove(stream), 60);
-
-        const raycaster = new THREE.Raycaster(camera.position, dir);
-        const otherPlayerMeshes = Object.values(players);
-        const intersects = raycaster.intersectObjects(otherPlayerMeshes, true);
-        if (intersects.length > 0) {
-            score += 10;
-            document.getElementById('score-board').innerText = `점수: ${score}`;
+    function die(reason) {
+        if (isGameOver) return;
+        isGameOver = true;
+        showStatus(`게임 오버!<br><span class='text-lg'>${reason}</span>`, false);
+        document.getElementById('retry-btn').classList.remove('hidden');
+        document.exitPointerLock();
+        if (userId) {
+            deleteDoc(doc(db, 'artifacts', currentAppId, 'public', 'data', 'players', userId));
         }
     }
 
@@ -478,13 +457,23 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
+    function showStatus(msg, showSpinner = false) {
+        document.getElementById('status-msg').style.display = 'block';
+        document.getElementById('msg-text').innerHTML = msg;
+        document.getElementById('waiting-spinner').style.display = showSpinner ? 'block' : 'none';
+    }
+
+    function hideStatus() {
+        document.getElementById('status-msg').style.display = 'none';
+    }
+
     function animate() {
         requestAnimationFrame(animate);
         if (isGameOver) { renderer.render(scene, camera); return; }
         const delta = clock.getDelta();
-        const speed = 7;
 
         if (document.pointerLockElement && !isWaiting) {
+            const speed = 8;
             const dir = new THREE.Vector3();
             if (moveForward) dir.z -= 1;
             if (moveBackward) dir.z += 1;
@@ -493,21 +482,13 @@
             dir.normalize().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw));
             camera.position.add(dir.multiplyScalar(speed * delta));
             
-            const distFromCenter = Math.sqrt(camera.position.x**2 + camera.position.z**2);
-            if (distFromCenter > ISLAND_SIZE) {
-                if (camera.position.y === 1.6) playSplashSound();
-                camera.position.y -= 0.15;
-                if (camera.position.y < -3) {
-                    showStatus("첨벙! 탈락했어. 새로고침해서 다시 시작해!");
-                    isGameOver = true;
-                    if (userId) {
-                        const playerRef = doc(db, 'artifacts', currentAppId, 'public', 'data', 'players', userId);
-                        deleteDoc(playerRef).catch(()=>{});
-                    }
-                    document.exitPointerLock();
-                }
-            } else { 
-                camera.position.y = 1.6; 
+            // 아일랜드 경계 및 낙사 판정
+            const dist = Math.sqrt(camera.position.x**2 + camera.position.z**2);
+            if (dist > ISLAND_SIZE) {
+                camera.position.y -= 0.2;
+                if (camera.position.y < -5) die("바다에 빠졌습니다!");
+            } else {
+                camera.position.y = 1.6;
             }
 
             camera.rotation.set(0, 0, 0);
@@ -517,10 +498,7 @@
             if (myGun) {
                 myGun.position.copy(camera.position);
                 myGun.quaternion.copy(camera.quaternion);
-                myGun.translateZ(-0.4); 
-                myGun.translateX(0.25); 
-                myGun.translateY(-0.25);
-                if (isReloading) myGun.position.y += Math.sin(Date.now() * 0.01) * 0.02;
+                myGun.translateZ(-0.4); myGun.translateX(0.25); myGun.translateY(-0.25);
             }
         }
         renderer.render(scene, camera);

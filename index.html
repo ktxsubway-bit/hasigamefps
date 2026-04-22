@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 마을 광장 - 권한 수정 버전</title>
+    <title>3D 마을 광장 - 전송 수정 버전</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -20,7 +20,7 @@
             position: absolute;
             bottom: 20px; left: 20px;
             width: 380px;
-            max-height: 450px;
+            max-height: 400px;
             background: rgba(15, 23, 42, 0.9);
             backdrop-filter: blur(20px);
             border-radius: 16px;
@@ -52,6 +52,7 @@
             outline: none;
             font-size: 14px;
         }
+        #chat-input:disabled { opacity: 0.5; cursor: not-allowed; }
         .msg-item { margin-bottom: 8px; line-height: 1.5; animation: slideUp 0.2s ease-out; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .msg-user { font-weight: 800; color: #818cf8; margin-right: 6px; }
@@ -67,7 +68,7 @@
 <div id="status-overlay">
     <div class="text-center">
         <div class="text-3xl font-black mb-2 tracking-tighter text-indigo-400">TOWN SQUARE</div>
-        <div id="status-text" class="text-sm opacity-60">서버 권한을 확인하는 중...</div>
+        <div id="status-text" class="text-sm opacity-60">연결을 시도 중입니다...</div>
     </div>
 </div>
 
@@ -75,7 +76,7 @@
     <div class="flex justify-between items-start">
         <div>
             <h1 class="text-2xl font-black text-indigo-400">TOWN CHAT</h1>
-            <div class="text-xs opacity-70">인증 기반 채팅 시스템</div>
+            <div class="text-xs opacity-70">안정적인 채팅 전송 모드</div>
         </div>
         <div class="text-right text-xs space-y-1 bg-black/30 p-3 rounded-lg backdrop-blur-md">
             <p><span class="font-bold text-indigo-300">W,A,S,D</span> 이동 | <span class="font-bold text-indigo-300">Enter</span> 채팅</p>
@@ -93,9 +94,8 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, getDocs, deleteDoc, doc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // Firebase 설정 (환경 변수 우선 순위)
     const firebaseConfig = typeof __firebase_config !== 'undefined' 
         ? JSON.parse(__firebase_config) 
         : {
@@ -118,7 +118,6 @@
     let yaw = 0, pitch = 0;
     const displayedMessageIds = new Set();
 
-    // 마을 모델링 생성 함수들
     function createTree(x, z) {
         const group = new THREE.Group();
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 1.5), new THREE.MeshStandardMaterial({ color: 0x4d2d1e }));
@@ -143,22 +142,16 @@
     }
 
     async function init() {
-        // 3D 씬 설정
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0f172a);
         scene.fog = new THREE.Fog(0x0f172a, 10, 120);
-
         scene.add(new THREE.AmbientLight(0xffffff, 0.5));
         const sun = new THREE.DirectionalLight(0xffffff, 0.8);
         sun.position.set(10, 20, 10);
         scene.add(sun);
 
-        const ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(1000, 1000), 
-            new THREE.MeshStandardMaterial({ color: 0x1e293b })
-        );
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
         ground.rotation.x = -Math.PI / 2;
-        ground.position.y = 0;
         scene.add(ground);
 
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -170,19 +163,19 @@
 
         createHouse(-10, -10, 0x475569);
         createHouse(15, -5, 0x334155);
-        for(let i=0; i<30; i++) {
-            createTree(Math.random()*100-50, Math.random()*100-50);
-        }
+        for(let i=0; i<30; i++) createTree(Math.random()*100-50, Math.random()*100-50);
 
         clock = new THREE.Clock();
-
-        // 이벤트 리스너
         window.addEventListener('resize', onWindowResize);
+        
         document.addEventListener('keydown', (e) => {
-            if(e.code === 'Enter') document.getElementById('chat-input').focus();
+            if(e.code === 'Enter' && document.activeElement !== document.getElementById('chat-input')) {
+                document.getElementById('chat-input').focus();
+            }
             updateKey(e.code, true);
         });
         document.addEventListener('keyup', (e) => updateKey(e.code, false));
+        
         document.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement) {
                 yaw -= e.movementX * 0.002;
@@ -191,12 +184,10 @@
         });
 
         renderer.domElement.onclick = () => {
-            if(document.activeElement !== document.getElementById('chat-input')) {
-                renderer.domElement.requestPointerLock();
-            }
+            if(document.activeElement !== document.getElementById('chat-input')) renderer.domElement.requestPointerLock();
         };
 
-        // 인증 및 Firestore 초기화 (RULE 3 준수)
+        // RULE 3: Auth Before Queries
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -204,17 +195,20 @@
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (err) {
-                console.error("Auth initialization failed:", err);
+            } catch (err) { 
+                console.error("Auth Error:", err);
+                document.getElementById('status-text').innerText = "인증 오류가 발생했습니다. 새로고침 해주세요.";
             }
         };
 
         await initAuth();
-
+        
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
                 document.getElementById('status-overlay').style.display = 'none';
+                cleanOldData(); 
+                setInterval(cleanOldData, 15 * 60 * 1000);
                 startChatSync();
             }
         });
@@ -222,55 +216,83 @@
         document.getElementById('chat-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendChatMessage();
         });
-
+        
         animate();
+    }
+
+    async function cleanOldData() {
+        if (!currentUser) return;
+        // RULE 1: Strict Paths
+        const chatCol = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
+        try {
+            const snap = await getDocs(chatCol);
+            const now = Date.now();
+            const fifteenMinutesInMs = 15 * 60 * 1000;
+            
+            snap.forEach(async (document) => {
+                const data = document.data();
+                if (data.time && (now - data.time.toMillis() > fifteenMinutesInMs)) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'chats', document.id));
+                }
+            });
+        } catch (e) {
+            console.warn("Cleanup log:", e.message);
+        }
     }
 
     function startChatSync() {
         if (!currentUser) return;
-        
-        // RULE 1: 정확한 공용 데이터 경로 사용
+        // RULE 1 & RULE 2: Simple query, no orderBy to avoid index requirement
         const chatCol = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
         
-        // 실시간 동기화
         onSnapshot(chatCol, (snap) => {
             const newMessages = [];
             snap.forEach(doc => {
+                const data = doc.data();
                 if (!displayedMessageIds.has(doc.id)) {
-                    newMessages.push({ id: doc.id, ...doc.data() });
+                    newMessages.push({ id: doc.id, ...data });
                     displayedMessageIds.add(doc.id);
                 }
             });
 
-            // 시간순 정렬 (RULE 2: JS 메모리 필터링/정렬)
+            // RULE 2: Sort in memory
             newMessages.sort((a, b) => (a.time?.toMillis() || 0) - (b.time?.toMillis() || 0));
             newMessages.forEach(m => appendChatUI(m));
-        }, (error) => {
-            console.error("Firestore Listen Error:", error);
-            if (error.code === 'permission-denied') {
-                console.warn("Retrying auth due to permission denial...");
-            }
+        }, (err) => {
+            console.error("Snapshot Error:", err);
         });
     }
 
     async function sendChatMessage() {
-        if (!currentUser) return;
+        if (!currentUser) {
+            console.error("No authenticated user");
+            return;
+        }
+        
         const input = document.getElementById('chat-input');
         const text = input.value.trim();
         if (!text) return;
 
-        input.value = '';
-        input.blur();
+        // 전송 중 상태 표시
+        input.disabled = true;
+        const originalPlaceholder = input.placeholder;
+        input.placeholder = "전송 중...";
 
         try {
             const chatCol = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
             await addDoc(chatCol, {
                 uid: currentUser.uid.substring(0, 5),
                 text: text,
-                time: serverTimestamp()
+                time: serverTimestamp() // 반드시 serverTimestamp 사용
             });
-        } catch(e) {
-            console.error("Chat Send Error:", e);
+            input.value = '';
+        } catch(e) { 
+            console.error("Send Error Details:", e);
+            alert("메시지 전송에 실패했습니다: " + e.message);
+        } finally {
+            input.disabled = false;
+            input.placeholder = originalPlaceholder;
+            input.focus();
         }
     }
 
@@ -283,7 +305,7 @@
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
         
-        if (container.children.length > 50) {
+        if (container.children.length > 25) {
             container.removeChild(container.firstChild);
         }
     }
@@ -294,6 +316,7 @@
     }
 
     function onWindowResize() {
+        if (!camera || !renderer) return;
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -302,12 +325,10 @@
     function animate() {
         requestAnimationFrame(animate);
         const delta = clock.getDelta();
-
-        if (document.pointerLockElement) {
+        if (document.pointerLockElement && camera) {
             const dir = new THREE.Vector3();
             if(moveForward) dir.z -= 1; if(moveBackward) dir.z += 1;
             if(moveLeft) dir.x -= 1; if(moveRight) dir.x += 1;
-            
             if(dir.length() > 0) {
                 dir.normalize().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), yaw));
                 camera.position.add(dir.multiplyScalar(7 * delta));
@@ -316,10 +337,10 @@
             camera.rotation.set(0,0,0);
             camera.rotateY(yaw); camera.rotateX(pitch);
         }
-
-        renderer.render(scene, camera);
+        if (renderer && scene && camera) {
+            renderer.render(scene, camera);
+        }
     }
-
     window.onload = init;
 </script>
 </body>

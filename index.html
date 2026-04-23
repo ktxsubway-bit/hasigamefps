@@ -2,620 +2,379 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seoul Metro Line 2 Simulator - Enhanced Doors</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>1930s Jungang Line: Optimized Performance</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Noto+Sans+KR:wght@300;500;900&display=swap');
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Noto Sans KR', sans-serif; }
-        #ui-container { position: absolute; inset: 0; pointer-events: none; z-index: 100; }
-        #station-info {
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            width: 80%; max-width: 500px; background: rgba(255, 255, 255, 0.95);
-            border-left: 8px solid #2ecc71; padding: 15px 25px;
-            color: #1a1a1a; pointer-events: auto; border-radius: 12px; box-shadow: 0 15px 35px rgba(0,0,0,0.15);
-        }
-        #speed-panel { position: absolute; bottom: 40px; left: 40px; color: white; text-shadow: 2px 2px 12px rgba(0,0,0,0.6); }
-        #speed-num { font-family: 'Orbitron', sans-serif; font-size: 5.5rem; font-weight: 900; color: #ffffff; line-height: 1; }
-        #control-guide { position: absolute; bottom: 140px; right: 40px; background: rgba(0, 0, 0, 0.7); padding: 18px; border-radius: 12px; color: #fff; font-size: 0.9rem; line-height: 1.8; text-align: right; }
-        #throttle-container { position: absolute; bottom: 40px; right: 40px; width: 320px; pointer-events: auto; }
-        #announcement-sub {
-            position: absolute; top: 120px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.8); color: white; padding: 12px 24px;
-            border-radius: 8px; font-size: 1.2rem; font-weight: 500; text-align: center;
-            display: none; transition: opacity 0.5s; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.2);
-        }
-        #start-screen {
-            position: absolute; inset: 0; background: linear-gradient(135deg, #1e40af 0%, #2ecc71 100%);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; color: white;
-        }
-        #message-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        body { margin: 0; overflow: hidden; background: #a7d8ff; font-family: 'Pretendard', sans-serif; touch-action: none; -webkit-user-select: none; user-select: none; }
+        #ui-overlay { position: absolute; bottom: env(safe-area-inset-bottom, 20px); left: 50%; transform: translateX(-50%); color: #2d2d2d; pointer-events: none; text-shadow: 1px 1px 2px rgba(255,255,255,0.8); z-index: 20; text-align: center; }
+        
+        .v-control { position: absolute; bottom: 40px; width: 60px; height: 220px; background: rgba(255,255,255,0.3); border: 2px solid rgba(0,0,0,0.1); border-radius: 30px; pointer-events: auto; touch-action: none; display: flex; flex-direction: column-reverse; align-items: center; padding: 10px 0; box-sizing: border-box; backdrop-filter: blur(5px); }
+        #power-ctrl { left: 30px; }
+        #brake-ctrl { right: 30px; }
+        .v-handle { width: 44px; height: 44px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: absolute; left: 6px; bottom: 10px; cursor: pointer; }
+        #power-handle { background: linear-gradient(135deg, #8b4513, #3e2723); }
+        #brake-handle { background: linear-gradient(135deg, #b71c1c, #7f0000); }
+        .ctrl-label { position: absolute; top: -30px; width: 100%; text-align: center; font-size: 10px; font-weight: bold; color: #444; letter-spacing: 1px; }
+
+        #speed-text { font-size: clamp(2.5rem, 10vw, 4rem); font-weight: 900; color: #3e2723; font-variant-numeric: tabular-nums; line-height: 1; }
+        #station-info { position: absolute; top: 85px; width: 100%; text-align: center; color: #2d2d2d; pointer-events: none; z-index: 20; }
+        
+        #start-overlay { position: fixed; inset: 0; background: #fdf5e6; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #3e2723; z-index: 1000; text-align: center; padding: 20px; transition: opacity 0.5s ease; }
+        .start-box { border: 4px double #8b4513; padding: 40px; border-radius: 4px; background: #fffaf0; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        
+        #loading-indicator { display: none; flex-direction: column; align-items: center; gap: 15px; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #8b451322; border-top: 4px solid #8b4513; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .touch-btn { pointer-events: auto; background: rgba(255,255,255,0.7); backdrop-filter: blur(5px); border: 1px solid rgba(0,0,0,0.2); border-radius: 8px; color: #3e2723; padding: 10px; font-weight: bold; cursor: pointer; }
+        .active-mode { background: #8b4513 !important; color: #fff !important; }
+        
+        #view-btns { position: absolute; top: 20px; right: 20px; display: flex; gap: 8px; pointer-events: auto; z-index: 30; }
+        .view-btn { width: 40px; height: 40px; font-size: 14px; }
+        
+        #status-panel { position: absolute; top: 20px; left: 20px; z-index: 30; display: flex; flex-direction: column; gap: 8px; pointer-events: auto; }
+        
+        #speed-limit-sign { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: #fff; border: 4px solid red; border-radius: 50%; width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; color: black; font-weight: 900; font-size: 1.4rem; z-index: 40; }
     </style>
 </head>
 <body>
 
-<div id="start-screen">
-    <div class="text-white font-black tracking-[0.3em] mb-2 opacity-80 uppercase text-sm">Seoul Metro Line 2</div>
-    <h1 class="text-7xl font-black mb-6 tracking-tighter">강변 <span class="text-3xl font-light mx-4">→</span> 삼성</h1>
-    <p class="mb-8 opacity-70">AI 열차 트래픽이 강화된 시뮬레이터</p>
-    <button id="start-btn" class="bg-white text-green-600 hover:scale-105 px-20 py-5 rounded-full text-2xl font-black transition-all shadow-[0_20px_50px_rgba(0,0,0,0.3)] pointer-events-auto">운전 시작</button>
-</div>
+    <div id="start-overlay">
+        <div class="start-box" id="start-content">
+            <h1 class="text-4xl font-serif font-black mb-4 text-sepia-900 tracking-tight">VINTAGE 1930</h1>
+            <p class="text-lg mb-2 text-stone-700 font-bold">중앙선 최적화 버전</p>
+            <p class="text-sm text-stone-500 mb-8 max-w-xs mx-auto">우보 - 화본 - 봉림 마을 구간</p>
+            <button onclick="startEngine()" class="text-white bg-stone-800 px-8 py-3 rounded font-bold tracking-widest uppercase hover:bg-black transition-colors">운행 시작</button>
+        </div>
+        <div id="loading-indicator">
+            <div class="spinner"></div>
+            <p class="text-stone-700 font-bold tracking-widest">청크 로딩 및 엔진 예열 중...</p>
+        </div>
+    </div>
 
-<div id="ui-container">
+    <div id="speed-limit-sign">60</div>
+
+    <div id="power-ctrl" class="v-control">
+        <div class="ctrl-label">가속</div>
+        <div id="power-handle" class="v-handle"></div>
+    </div>
+
+    <div id="brake-ctrl" class="v-control">
+        <div class="ctrl-label">제동</div>
+        <div id="brake-handle" class="v-handle"></div>
+    </div>
+
+    <div id="status-panel">
+        <div id="mode-btn" class="touch-btn px-4 py-2 text-xs" onclick="toggleAI()">자동운전: 꺼짐</div>
+    </div>
+
+    <div id="view-btns">
+        <div class="touch-btn view-btn flex items-center justify-center" onclick="setView(1)">1</div>
+        <div class="touch-btn view-btn flex items-center justify-center" onclick="setView(2)">2</div>
+        <div class="touch-btn view-btn flex items-center justify-center" onclick="setView(3)">3</div>
+    </div>
+
     <div id="station-info">
-        <div class="flex justify-between items-center">
-            <div>
-                <div id="target-label" class="text-green-600 text-[11px] font-black mb-1 uppercase tracking-widest">Next Station</div>
-                <div id="target-name" class="text-3xl font-black italic">잠실나루</div>
-            </div>
-            <div class="text-right">
-                <div class="text-gray-400 text-[11px] font-bold mb-1 uppercase tracking-widest">Distance</div>
-                <div id="dist-remain" class="text-2xl font-black text-green-700 tracking-tighter">0.00 km</div>
-            </div>
+        <div id="next-station-name" class="font-bold text-xl text-stone-800">시뮬레이션 준비 완료</div>
+        <div id="station-dist" class="text-xs text-stone-500 tracking-widest mt-1 uppercase">신호를 기다리는 중...</div>
+    </div>
+
+    <div id="ui-overlay">
+        <div id="speed-text">0 <span class="text-xl text-stone-400 font-medium">km/h</span></div>
+        <div class="mt-4 flex flex-col items-center gap-3 pointer-events-auto">
+            <div id="ats-status" class="px-6 py-1 text-[10px] font-bold text-stone-700 bg-white/80 rounded-full border border-stone-300 shadow-sm uppercase tracking-wider">주행 가능</div>
+            <div class="touch-btn px-8 py-1.5 text-[10px] bg-red-800 text-white border-none" onclick="emergencyBrake()">비상 제동</div>
         </div>
     </div>
-    <div id="announcement-sub"></div>
-    <div id="control-guide">
-        <strong class="text-green-400 font-black">COMMANDS</strong><br>
-        W: 가속 | S: 제동 | Space: 중립 | Q: 비상제동
-    </div>
-    <div id="speed-panel">
-        <div class="text-[11px] font-black text-white/80 mb-1 uppercase tracking-widest">Velocity</div>
-        <div class="flex items-baseline gap-2">
-            <span id="speed-num">0</span>
-            <span class="text-2xl font-bold opacity-80">km/h</span>
-        </div>
-    </div>
-    <div id="throttle-container">
-        <div class="flex justify-between text-[11px] font-black text-white mb-3 tracking-widest">
-            <span class="text-red-400">BRAKE</span>
-            <span class="opacity-50">N</span>
-            <span class="text-blue-400">POWER</span>
-        </div>
-        <div class="h-3 bg-black/50 rounded-full relative overflow-hidden backdrop-blur-xl border border-white/10">
-            <div id="throttle-bar" class="absolute h-full left-1/2 w-0 transition-all duration-300"></div>
-        </div>
-    </div>
-</div>
-<div id="message-overlay"></div>
 
-<script>
-    let scene, camera, renderer, train, clock;
-    let speed = 0, distance = 0, throttle = 0;
-    let isStarted = false, isGameOver = false, isAnnouncing = false;
-    let isStationWaiting = false;
-    let mainLight;
-    const apiKey = ""; 
-    
-    let audioCtx, inverterOsc, motorGain;
+    <script>
+        let audioCtx, engineOsc, engineGain;
+        let isEngineStarted = false;
 
-    const BRIDGE_Y = 15;
-    const TRACK_X_OFFSET = 4.0; 
-    const PLATFORM_GAP = 7.0; 
-    const TUNNEL_START_Z = -1800; 
-    const STATIONS = [
-        { name: "강변", z: 0, isUnderground: false },
-        { name: "잠실나루", z: -1300, isUnderground: false },
-        { name: "잠실", z: -2800, isUnderground: true },
-        { name: "잠실새내", z: -4300, isUnderground: true },
-        { name: "종합운동장", z: -5800, isUnderground: true },
-        { name: "삼성", z: -7500, isUnderground: true }
-    ];
-    
-    let aiTrains = [];
-    const AI_TRACK_X = -TRACK_X_OFFSET;
-    let lastAISpawnDistance = 0;
+        function startEngine() {
+            if (isEngineStarted) return;
+            document.getElementById('start-content').style.display = 'none';
+            document.getElementById('loading-indicator').style.display = 'flex';
 
-    let currentTargetIdx = 1;
-    let hasAnnouncedRiver = false;
-
-    function initAudio() {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        inverterOsc = audioCtx.createOscillator();
-        inverterOsc.type = 'sawtooth';
-        motorGain = audioCtx.createGain();
-        motorGain.gain.value = 0;
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 800;
-        inverterOsc.connect(filter);
-        filter.connect(motorGain);
-        motorGain.connect(audioCtx.destination);
-        inverterOsc.start();
-    }
-
-    function updateMotorSound() {
-        if (!audioCtx) return;
-        let targetFreq = 100 + (speed * 5);
-        if (speed > 40) targetFreq = 300 + (speed * 1.5);
-        inverterOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
-        let targetVolume = (Math.abs(throttle) > 0 && !isStationWaiting) ? 0.04 : 0;
-        if (speed < 0.5) targetVolume = 0;
-        motorGain.gain.setTargetAtTime(targetVolume, audioCtx.currentTime, 0.2);
-    }
-
-    async function speak(text) {
-        if (isAnnouncing) return;
-        isAnnouncing = true;
-        const sub = document.getElementById('announcement-sub');
-        sub.style.display = 'block';
-        sub.innerText = text;
-        try {
-            const prompt = `Say in a professional subway announcer voice: "Kore: ${text}"`;
-            const result = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseModalities: ["AUDIO"],
-                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } }
-                    }
-                })
-            }).then(r => r.json());
-            
-            const audioPart = result.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-            if (!audioPart) throw new Error("No audio");
-            const audioData = base64ToUint8Array(audioPart.inlineData.data);
-            const wavBuffer = pcmToWav(audioData, 24000);
-            const audio = new Audio(URL.createObjectURL(new Blob([wavBuffer], { type: 'audio/wav' })));
-            audio.onended = () => { isAnnouncing = false; sub.style.display = 'none'; };
-            audio.play();
-        } catch (e) {
-            isAnnouncing = false;
-            setTimeout(() => { sub.style.display = 'none'; }, 3000);
+            setTimeout(() => {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    engineOsc = audioCtx.createOscillator();
+                    engineOsc.type = 'square';
+                    engineOsc.frequency.setValueAtTime(25, audioCtx.currentTime);
+                    engineGain = audioCtx.createGain();
+                    engineGain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+                    const lpf = audioCtx.createBiquadFilter();
+                    lpf.type = 'lowpass';
+                    lpf.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    engineOsc.connect(lpf);
+                    lpf.connect(engineGain);
+                    engineGain.connect(audioCtx.destination);
+                    engineOsc.start();
+                    
+                    document.getElementById('start-overlay').style.opacity = '0';
+                    setTimeout(() => { document.getElementById('start-overlay').style.display = 'none'; }, 500);
+                    isEngineStarted = true;
+                } catch (e) {
+                    document.getElementById('start-overlay').style.display = 'none';
+                    isEngineStarted = true;
+                }
+            }, 800);
         }
-    }
 
-    function base64ToUint8Array(base64) {
-        const binaryString = atob(base64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-        return bytes;
-    }
+        function updateSound(notch, speed) {
+            if (!isEngineStarted || !engineOsc) return;
+            const targetFreq = 22 + (notch * 8) + (speed * 0.1);
+            const targetVol = 0.02 + (notch * 0.04);
+            engineOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.5);
+            engineGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.5);
+        }
 
-    function pcmToWav(pcmData, sampleRate) {
-        const buffer = new ArrayBuffer(44 + pcmData.length);
-        const view = new DataView(buffer);
-        const writeString = (v, o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
-        writeString(view, 0, 'RIFF');
-        view.setUint32(4, 32 + pcmData.length, true);
-        writeString(view, 8, 'WAVE');
-        writeString(view, 12, 'fmt ');
-        view.setUint32(16, 16, true);
-        view.setUint16(20, 1, true); 
-        view.setUint16(22, 1, true); 
-        view.setUint32(24, sampleRate, true);
-        view.setUint32(28, sampleRate * 2, true); 
-        view.setUint16(32, 2, true); 
-        view.setUint16(34, 16, true); 
-        writeString(view, 36, 'data');
-        view.setUint32(40, pcmData.length, true);
-        new Uint8Array(buffer, 44).set(pcmData);
-        return buffer;
-    }
+        const STATIONS = [
+            { name: "우보정거장 (Ubo)", pos: 2000, type: 'stop', stopTime: 8 },
+            { name: "화본정거장 (Hwabon)", pos: 8000, type: 'stop', stopTime: 10, hasWaterTower: true },
+            { name: "봉림정거장 (Bongrim)", pos: 14000, type: 'stop', stopTime: 8 }
+        ];
 
-    function init() {
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB);
-        scene.fog = new THREE.Fog(0x87CEEB, 300, 4000);
-        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 40000);
-        renderer = new THREE.WebGLRenderer({ antialias: true });
+        let speed_kph = 0, power_notch = 0, brake_notch = 0, distance_m = 0;
+        let viewMode = 1, lastTime = performance.now();
+        let isAI = false;
+        let currentLimit = 60;
+        let stopTimer = 0;
+        let isStoppedAtStation = false;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xa7d8ff);
+        
+        // 최적화: 안개 범위를 더 가깝게 좁힘 (300m ~ 1500m)
+        scene.fog = new THREE.Fog(0xa7d8ff, 300, 1500); 
+
+        // 최적화: 카메라의 가시 거리를 15,000에서 2,000으로 대폭 단축
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: false }); // 최적화: 안티앨리어싱 끔 (렉 방지)
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // 최적화: 픽셀 배수 제한
+        renderer.toneMapping = THREE.ReinhardToneMapping;
         document.body.appendChild(renderer.domElement);
-        clock = new THREE.Clock();
-        
-        mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        mainLight.position.set(100, 500, 100);
-        scene.add(mainLight);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        
-        createEnvironment();
-        createTrain();
-        STATIONS.forEach(s => createStation(s));
-        
-        spawnAITrain(-600);
-        spawnAITrain(-2000);
-        spawnAITrain(-5000);
 
-        window.addEventListener('resize', onResize);
-        window.addEventListener('keydown', handleKeydown);
-        initAudio();
-        animate();
-    }
+        const sun = new THREE.DirectionalLight(0xfff5e6, 1.2);
+        sun.position.set(100, 200, 50);
+        scene.add(sun);
+        scene.add(new THREE.AmbientLight(0xddeeff, 0.6));
 
-    function createEnvironment() {
-        const groundGeo = new THREE.PlaneGeometry(15000, 40000);
-        const groundMat = new THREE.MeshStandardMaterial({ color: 0x2d3a2d });
-        const ground = new THREE.Mesh(groundGeo, groundMat);
-        ground.rotation.x = -Math.PI/2;
-        ground.position.set(0, -0.5, -15000);
-        scene.add(ground);
+        const train = new THREE.Group();
+        const loco = new THREE.Group();
+        const vintageGreen = new THREE.MeshStandardMaterial({ color: 0x1a3a1a });
+        const rustyBrown = new THREE.MeshStandardMaterial({ color: 0x4a3a2a });
+        const brassMat = new THREE.MeshStandardMaterial({ color: 0xaa8833 });
 
-        const waterGeo = new THREE.PlaneGeometry(15000, 1000);
-        const waterMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.2 });
-        const water = new THREE.Mesh(waterGeo, waterMat);
-        water.rotation.x = -Math.PI / 2;
-        water.position.set(0, 0.1, -650);
-        scene.add(water);
+        loco.add(new THREE.Mesh(new THREE.BoxGeometry(3.0, 3.0, 10), vintageGreen));
+        loco.children[0].position.y = 2.1;
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.5, 10.5), rustyBrown);
+        roof.position.y = 3.8; loco.add(roof);
+        const nose = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.5, 2.0), vintageGreen);
+        nose.position.set(0, 1.8, -6.0); loco.add(nose);
+        const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.5), brassMat);
+        chimney.position.set(0, 4.5, -5); loco.add(chimney);
+        train.add(loco);
 
-        const tunnelLength = 20000;
-        const tunnelGeo = new THREE.BoxGeometry(60, 20, tunnelLength);
-        const tunnelMat = new THREE.MeshStandardMaterial({ color: 0x111111, side: THREE.BackSide });
-        const tunnel = new THREE.Mesh(tunnelGeo, tunnelMat);
-        tunnel.position.set(0, BRIDGE_Y + 5, TUNNEL_START_Z - tunnelLength/2); 
-        scene.add(tunnel);
-
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(20, 22, 2), wallMat);
-        leftWall.position.set(-20, BRIDGE_Y + 5, TUNNEL_START_Z);
-        scene.add(leftWall);
-        
-        const rightWall = new THREE.Mesh(new THREE.BoxGeometry(20, 22, 2), wallMat);
-        rightWall.position.set(20, BRIDGE_Y + 5, TUNNEL_START_Z);
-        scene.add(rightWall);
-        
-        const topWall = new THREE.Mesh(new THREE.BoxGeometry(20, 14, 2), wallMat);
-        topWall.position.set(0, BRIDGE_Y + 11, TUNNEL_START_Z);
-        scene.add(topWall);
-
-        const totalRailLength = 35000;
-        [-TRACK_X_OFFSET, TRACK_X_OFFSET].forEach(trackX => {
-            const ballast = new THREE.Mesh(
-                new THREE.BoxGeometry(6, 0.8, totalRailLength), 
-                new THREE.MeshStandardMaterial({ color: 0x333333 })
-            );
-            ballast.position.set(trackX, BRIDGE_Y, -totalRailLength/2 + 500);
-            scene.add(ballast);
-
-            [-1.2, 1.2].forEach(rx => {
-                const rail = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.25, 0.4, totalRailLength), 
-                    new THREE.MeshStandardMaterial({ color: 0x999999 })
-                );
-                rail.position.set(trackX + rx, BRIDGE_Y + 0.5, -totalRailLength/2 + 500);
-                scene.add(rail);
-            });
-        });
-
-        for (let z = 300; z > TUNNEL_START_Z; z -= 40) {
-            const deck = new THREE.Mesh(new THREE.BoxGeometry(22, 1.5, 40.1), new THREE.MeshStandardMaterial({color: 0x444444}));
-            deck.position.set(0, BRIDGE_Y - 0.75, z);
-            scene.add(deck);
-
-            if (z % 80 === 0) {
-                const pillar = new THREE.Mesh(new THREE.BoxGeometry(16, BRIDGE_Y + 5, 10), new THREE.MeshStandardMaterial({color: 0x222222}));
-                pillar.position.set(0, BRIDGE_Y/2 - 2, z);
-                scene.add(pillar);
-            }
+        const coaches = new THREE.Group();
+        const coachMat = new THREE.MeshStandardMaterial({ color: 0x3d2b1f });
+        for(let i=1; i<=3; i++) {
+            const cGroup = new THREE.Group();
+            const coachBody = new THREE.Mesh(new THREE.BoxGeometry(3.0, 3.2, 18), coachMat);
+            coachBody.position.y = 2.1; cGroup.add(coachBody);
+            cGroup.position.z = 15 + (i * 20); coaches.add(cGroup);
         }
-
-        for (let i = 0; i < 300; i++) {
-            const zPos = -Math.random() * 20000;
-            if (zPos < 200 && zPos > -1500) continue; 
-            const h = 50 + Math.random() * 150;
-            const w = 30 + Math.random() * 40;
-            const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), new THREE.MeshStandardMaterial({ color: 0x64748b }));
-            const side = Math.random() > 0.5 ? 1 : -1;
-            b.position.set(side * (120 + Math.random() * 600), h/2, zPos);
-            scene.add(b);
-        }
-    }
-
-    function createStation(s) {
-        const group = new THREE.Group();
-        const platWidth = 10;
-        const platHeight = 1.8;
-        const platLength = 320;
-
-        [1, -1].forEach(side => {
-            const platX = side * (TRACK_X_OFFSET + PLATFORM_GAP);
-            const plat = new THREE.Mesh(
-                new THREE.BoxGeometry(platWidth, platHeight, platLength),
-                new THREE.MeshStandardMaterial({ color: 0x222222 })
-            );
-            plat.position.set(platX, platHeight/2, 0);
-            group.add(plat);
-
-            const psdX = side * (TRACK_X_OFFSET + 2.2);
-            for (let z = -150; z <= 150; z += 12) {
-                const glass = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.1, 4.2, 11.6),
-                    new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.3 })
-                );
-                glass.position.set(psdX, 3.8, z);
-                group.add(glass);
-
-                const frame = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.5, 4.5, 0.5),
-                    new THREE.MeshStandardMaterial({ color: 0x0f172a })
-                );
-                frame.position.set(psdX, 3.8, z - 5.8);
-                group.add(frame);
-            }
-
-            if (!s.isUnderground) {
-                for(let z = -140; z <= 140; z += 40) {
-                    const p = new THREE.Mesh(new THREE.BoxGeometry(1.2, 12, 1.2), new THREE.MeshStandardMaterial({ color: 0x475569 }));
-                    p.position.set(platX + (side * 3), 6, z);
-                    group.add(p);
-                }
-                const roof = new THREE.Mesh(new THREE.BoxGeometry(platWidth + 4, 0.6, platLength + 20), new THREE.MeshStandardMaterial({ color: 0x334155 }));
-                roof.position.set(platX, 11, 0);
-                group.add(roof);
-            } else {
-                const ceiling = new THREE.Mesh(new THREE.BoxGeometry(60, 1, platLength), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-                ceiling.position.set(0, 12, 0);
-                group.add(ceiling);
-            }
-        });
-
-        group.position.set(0, BRIDGE_Y, s.z);
-        scene.add(group);
-    }
-
-    /**
-     * 열차 모델 생성 함수 - 개선된 출입문 (크기 확대 및 칸당 4개 배치)
-     */
-    function createTrainModel(color) {
-        const group = new THREE.Group();
-        const trainLength = 180;
-        
-        // 차체 (Body)
-        const bodyGeo = new THREE.BoxGeometry(3.2, 3.8, trainLength);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: color });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        body.position.y = 2.4;
-        group.add(body);
-        
-        // 창문 라인 (상단부 검은 띠)
-        const windowLine = new THREE.Mesh(
-            new THREE.BoxGeometry(3.3, 0.9, trainLength - 2), 
-            new THREE.MeshStandardMaterial({ color: 0x1a202c })
-        );
-        windowLine.position.y = 3.3;
-        group.add(windowLine);
-
-        // 출입문 설정
-        const doorWidth = 2.4; // 문의 가로 너비 확대
-        const doorHeight = 3.0; // 문의 세로 높이 확대 (차체 하단부터 거의 상단 창문 라인까지)
-        const doorMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.6, roughness: 0.4 });
-        const doorGeo = new THREE.BoxGeometry(0.1, doorHeight, doorWidth);
-        
-        // 한 칸을 20m 정도로 가정할 때 180m이면 약 9량. 
-        // 여기서는 전체를 하나의 객체로 그리되, 4도어 배치를 일정 간격으로 반복합니다.
-        const doorPositions = [];
-        const segmentLength = 20; // 량당 길이
-        const doorOffset = 4.5; // 량 내부에서 문 사이의 간격
-
-        for (let i = -4; i <= 4; i++) { // 총 9개 구획
-            let centerZ = i * segmentLength;
-            // 각 량마다 4개의 문 배치
-            doorPositions.push(centerZ - 7.5, centerZ - 2.5, centerZ + 2.5, centerZ + 7.5);
-        }
-        
-        for (let side of [-1, 1]) {
-            doorPositions.forEach(z => {
-                // 출입문 본체
-                const door = new THREE.Mesh(doorGeo, doorMat);
-                door.position.set(side * 1.62, 1.9, z);
-                group.add(door);
-
-                // 문 중앙 수직선 (쌍미닫이 문 표현)
-                const centerLine = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.05, doorHeight, 0.05), 
-                    new THREE.MeshBasicMaterial({color: 0x333333})
-                );
-                centerLine.position.set(side * 1.68, 1.9, z);
-                group.add(centerLine);
-                
-                // 문 유창 (Door Window - 더 크게 조정)
-                const doorWin = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.12, 1.2, doorWidth - 0.4), 
-                    new THREE.MeshStandardMaterial({color: 0x1a202c})
-                );
-                doorWin.position.set(side * 1.64, 2.6, z);
-                group.add(doorWin);
-            });
-        }
-
-        // 전후면 라이트
-        const lightGeo = new THREE.SphereGeometry(0.3, 8, 8);
-        const frontLight = new THREE.Mesh(lightGeo, new THREE.MeshBasicMaterial({color: 0xffffaa}));
-        frontLight.position.set(1, 1.5, -90.1);
-        group.add(frontLight);
-        const frontLight2 = frontLight.clone();
-        frontLight2.position.x = -1;
-        group.add(frontLight2);
-
-        const tailLight = new THREE.Mesh(lightGeo, new THREE.MeshBasicMaterial({color: 0xff4444}));
-        tailLight.position.set(1, 1.5, 90.1);
-        group.add(tailLight);
-        const tailLight2 = tailLight.clone();
-        tailLight2.position.x = -1;
-        group.add(tailLight2);
-
-        return group;
-    }
-
-    function createTrain() {
-        train = createTrainModel(0x22c55e);
-        camera.position.set(0, 3.4, -89);
-        camera.lookAt(0, 3.4, -250);
-        train.add(camera);
-        train.position.set(TRACK_X_OFFSET, BRIDGE_Y + 0.1, 0);
+        train.add(coaches);
         scene.add(train);
-    }
 
-    function spawnAITrain(startZ) {
-        const aiModel = createTrainModel(0x22c55e);
-        aiModel.rotation.y = Math.PI; 
-        aiModel.position.set(AI_TRACK_X, BRIDGE_Y + 0.1, startZ);
-        scene.add(aiModel);
+        const sleeperMat = new THREE.MeshStandardMaterial({ color: 0x2b1d0e });
+        const leafMat = new THREE.MeshStandardMaterial({ color: 0x224422 });
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0xfaf0e6 });
+        const thatchMat = new THREE.MeshStandardMaterial({ color: 0xd2b48c });
+        const tileMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
 
-        const aiObj = {
-            mesh: aiModel,
-            speed: 80,
-            targetSpeed: 80,
-            state: 'RUNNING', 
-            stopTimer: 0,
-            currentStationIdx: STATIONS.length - 1 
-        };
-        
-        for(let i=STATIONS.length-1; i>=0; i--) {
-            if(STATIONS[i].z > startZ) {
-                aiObj.currentStationIdx = i;
-                break;
-            }
+        function createHouse(x, z, type='thatch') {
+            const hGroup = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(5, 3, 4), wallMat);
+            body.position.y = 1.5; hGroup.add(body);
+            const roof = type === 'thatch' 
+                ? new THREE.Mesh(new THREE.CylinderGeometry(0.1, 4, 2, 4), thatchMat)
+                : new THREE.Mesh(new THREE.CylinderGeometry(0.1, 4, 1.5, 4), tileMat);
+            roof.position.y = 3.5; roof.rotation.y = Math.PI / 4; hGroup.add(roof);
+            hGroup.position.set(x, 0, z); scene.add(hGroup);
         }
 
-        aiTrains.push(aiObj);
-    }
-
-    function handleKeydown(e) {
-        if (!isStarted || isGameOver || isStationWaiting) return;
-        const k = e.key.toLowerCase();
-        if (k === 'w') throttle = Math.min(throttle + 20, 100);
-        else if (k === 's') throttle = Math.max(throttle - 20, -100);
-        else if (k === ' ') throttle = 0;
-        else if (k === 'q') throttle = -100;
-    }
-
-    function updateAI(dt) {
-        if (distance - lastAISpawnDistance > 800) {
-            spawnAITrain(train.position.z - 2000); 
-            lastAISpawnDistance = distance;
+        function createTree(x, z) {
+            const tGroup = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 5), sleeperMat);
+            trunk.position.y = 2.5; tGroup.add(trunk);
+            const leaves = new THREE.Mesh(new THREE.SphereGeometry(3.5, 6, 6), leafMat); // 최적화: 세그먼트 감소
+            leaves.position.y = 6; tGroup.add(leaves);
+            tGroup.position.set(x, 0, z); scene.add(tGroup);
         }
 
-        for (let i = aiTrains.length - 1; i >= 0; i--) {
-            const ai = aiTrains[i];
-            const targetStation = STATIONS[ai.currentStationIdx];
-            const distToStation = targetStation ? (targetStation.z - ai.mesh.position.z) : -9999; 
-
-            if (ai.state === 'RUNNING') {
-                ai.targetSpeed = 85;
-                if (distToStation > -450 && targetStation) { 
-                    ai.state = 'BRAKING';
-                }
-            } else if (ai.state === 'BRAKING') {
-                const brakeDist = Math.max(0, distToStation);
-                ai.targetSpeed = Math.min(85, (brakeDist / 400) * 85);
+        function buildWorld() {
+            const railMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x5d4e3b });
+            
+            // 최적화: 전체 데이터를 생성하되, 지오메트리 복잡도를 최소화함
+            for (let z = -2000; z < 16000; z += 500) {
+                const ground = new THREE.Mesh(new THREE.PlaneGeometry(3000, 500), groundMat);
+                ground.rotation.x = -Math.PI/2; ground.position.set(0, -0.1, -z); scene.add(ground);
                 
-                if (distToStation > -5 && ai.speed < 2) {
-                    ai.speed = 0;
-                    ai.state = 'STOPPED';
-                    ai.stopTimer = 5 + Math.random() * 5;
+                const r1 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.2, 500), railMat);
+                r1.position.set(-0.72, 0.1, -z); scene.add(r1);
+                const r2 = r1.clone(); r2.position.x = 0.72; scene.add(r2);
+
+                // 최적화: 침목 간격을 넓힘 (1.2m -> 2.5m)
+                for(let sz = z-250; sz < z+250; sz += 2.5) {
+                    const sleeper = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.12, 0.4), sleeperMat);
+                    sleeper.position.set(0, 0.05, -sz); scene.add(sleeper);
                 }
-            } else if (ai.state === 'STOPPED') {
-                ai.targetSpeed = 0;
-                ai.stopTimer -= dt;
-                if (ai.stopTimer <= 0) {
-                    ai.state = 'RUNNING';
-                    ai.currentStationIdx--;
+
+                // 최적화: 나무 개수를 줄임 (15개 -> 8개)
+                for(let i=0; i<8; i++) {
+                    const side = Math.random() > 0.5 ? 1 : -1;
+                    createTree((15 + Math.random() * 40) * side, -z - Math.random() * 500);
                 }
+                if(z % 2000 === 0) { createHouse(25, -z - 100, 'thatch'); createHouse(-30, -z - 300, 'tile'); }
+            }
+            
+            STATIONS.forEach(s => {
+                const sp = -s.pos;
+                const plat = new THREE.Mesh(new THREE.BoxGeometry(8, 0.8, 250), new THREE.MeshStandardMaterial({color: 0x3e2723}));
+                plat.position.set(7, 0.4, sp); scene.add(plat);
+                const sBody = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 25), wallMat);
+                sBody.position.set(15, 3, sp); scene.add(sBody);
+            });
+        }
+
+        function setupTouchControl(containerId, handleId, onUpdate) {
+            const container = document.getElementById(containerId);
+            const handle = document.getElementById(handleId);
+            let isDragging = false;
+            const updatePos = (clientY) => {
+                const rect = container.getBoundingClientRect();
+                let y = Math.max(20, Math.min(clientY - rect.top, rect.height - 20));
+                handle.style.top = (y - 22) + "px";
+                onUpdate(1 - (y - 20) / (rect.height - 40));
+            };
+            container.addEventListener('touchstart', (e) => { 
+                if(!isEngineStarted) return;
+                isDragging = true; isAI = false; updatePos(e.touches[0].clientY); 
+            }, {passive: false});
+            container.addEventListener('touchmove', (e) => { 
+                if (isDragging) { e.preventDefault(); updatePos(e.touches[0].clientY); } 
+            }, {passive: false});
+            window.addEventListener('touchend', () => isDragging = false);
+        }
+
+        setupTouchControl('power-ctrl', 'power-handle', (v) => { power_notch = v * 8; if(v>0) brake_notch=0; });
+        setupTouchControl('brake-ctrl', 'brake-handle', (v) => { brake_notch = v * 12; if(v>0) power_notch=0; });
+
+        function toggleAI() {
+            if(!isEngineStarted) return;
+            isAI = !isAI;
+            document.getElementById('mode-btn').innerText = isAI ? "자동운전: 켜짐" : "자동운전: 꺼짐";
+            document.getElementById('mode-btn').classList.toggle('active-mode', isAI);
+        }
+
+        function setView(v) { viewMode = v; }
+        function emergencyBrake() { isAI = false; power_notch = 0; brake_notch = 15; }
+
+        function update(dt) {
+            const nearStation = STATIONS.find(s => Math.abs(distance_m - s.pos) < 600);
+            currentLimit = nearStation ? 40 : 80;
+            document.getElementById('speed-limit-sign').innerText = currentLimit;
+
+            if (isAI) {
+                const nextStation = STATIONS.find(s => s.pos > distance_m - 20);
+                if (nextStation) {
+                    const dist = nextStation.pos - distance_m;
+                    if (Math.abs(dist) < 20 && speed_kph < 3) {
+                        isStoppedAtStation = true;
+                        speed_kph = 0; power_notch = 0; brake_notch = 8;
+                        stopTimer += dt;
+                        if (stopTimer >= nextStation.stopTime) {
+                            isStoppedAtStation = false;
+                            stopTimer = 0;
+                            power_notch = 7; brake_notch = 0;
+                            distance_m += 25; 
+                        }
+                    } 
+                    else if (dist < 450 && dist > -20 && !isStoppedAtStation) {
+                        power_notch = 0;
+                        const targetSpeed = Math.sqrt(Math.max(0, dist)) * 2.2;
+                        if (speed_kph > targetSpeed + 5) brake_notch = 7;
+                        else if (speed_kph > targetSpeed) brake_notch = 3;
+                        else if (speed_kph < targetSpeed - 10) {
+                            brake_notch = 0;
+                            if (speed_kph < 5) power_notch = 1;
+                        } else brake_notch = 1;
+                    } 
+                    else {
+                        brake_notch = 0;
+                        if (speed_kph < currentLimit - 2) power_notch = 7;
+                        else if (speed_kph > currentLimit) { power_notch = 0; brake_notch = 2; }
+                        else power_notch = 2;
+                    }
+                }
+                document.getElementById('power-handle').style.top = (180 - (power_notch/8)*160) + "px";
+                document.getElementById('brake-handle').style.top = (180 - (brake_notch/12)*160) + "px";
             }
 
-            const accel = (ai.targetSpeed - ai.speed) * 0.4;
-            ai.speed += accel * dt;
-            ai.mesh.position.z += (ai.speed / 3.6) * dt;
+            let acc = (power_notch * 0.18) - (brake_notch * 0.52) - (speed_kph * 0.015);
+            speed_kph = Math.max(0, speed_kph + acc * dt);
+            distance_m += (speed_kph / 3.6) * dt;
+            
+            train.position.z = -distance_m;
 
-            if (ai.mesh.position.z > train.position.z + 1000 || ai.currentStationIdx < 0) {
-                scene.remove(ai.mesh);
-                aiTrains.splice(i, 1);
-            }
-        }
-    }
-
-    function updatePhysics(dt) {
-        if (isStationWaiting) throttle = 0;
-
-        speed += ((throttle/100)*4.8 - speed*0.038) * dt;
-        speed = Math.max(0, speed);
-        distance += (speed/3.6) * dt;
-        train.position.z = -distance;
-        
-        updateMotorSound();
-        updateAI(dt);
-
-        const target = STATIONS[currentTargetIdx];
-        const distToTarget = Math.abs(train.position.z - target.z);
-
-        document.getElementById('speed-num').innerText = Math.round(speed);
-        document.getElementById('dist-remain').innerText = `${(distToTarget/1000).toFixed(2)} km`;
-        document.getElementById('target-name').innerText = target.name;
-
-        if (distance > 150 && distance < 1000 && !hasAnnouncedRiver) {
-            hasAnnouncedRiver = true;
-            speak("지금 우리 열차는 잠실철교를 통해 한강을 건너고 있습니다. 우측의 한강 풍경을 즐겨주세요.");
-        }
-
-        if (distToTarget < 500 && !target.hasAnnounced) {
-            target.hasAnnounced = true;
-            speak(`이번 역은 ${target.name}, ${target.name}역입니다. 내리실 문은 오른쪽입니다.`);
-        }
-
-        if (distToTarget < 6 && speed < 1.2 && !target.hasStopped) {
-            target.hasStopped = true;
-            speed = 0;
-            if (currentTargetIdx === STATIONS.length - 1) {
-                speak("우리 열차의 종착역인 삼성역에 도착하였습니다. 소지품을 확인하시기 바랍니다.");
-                setTimeout(() => {
-                    isGameOver = true;
-                    showEndMsg("운행 종료", "삼성역에 정시 도착했습니다. 수고하셨습니다.");
-                }, 4000);
+            // 카메라 세팅 및 오브젝트 가시성 최적화
+            if(viewMode === 1) {
+                loco.visible = false; coaches.visible = false;
+                camera.position.set(0, 3.8, -distance_m - 6.0);
+                camera.lookAt(0, 3.5, -distance_m - 500);
+            } else if(viewMode === 2) {
+                loco.visible = true; coaches.visible = true;
+                camera.position.set(20, 10, -distance_m + 30);
+                camera.lookAt(0, 2, -distance_m);
             } else {
-                isStationWaiting = true;
-                speak("문이 열립니다. 안전사고에 유의하시기 바랍니다.");
-                setTimeout(() => {
-                    speak("문이 닫힙니다. 열차가 출발합니다.");
-                    isStationWaiting = false;
-                    currentTargetIdx++;
-                }, 7000);
+                loco.visible = true; coaches.visible = true;
+                camera.position.set(-15, 6, -distance_m - 40);
+                camera.lookAt(train.position);
             }
+
+            document.getElementById('speed-text').innerHTML = Math.round(speed_kph) + ' <span class="text-lg text-stone-400">km/h</span>';
+            const next = STATIONS.find(s => s.pos > distance_m - 20);
+            if(next) {
+                const distToNext = Math.max(0, Math.round(next.pos - distance_m));
+                document.getElementById('next-station-name').innerText = `다음 정거장: ${next.name}`;
+                document.getElementById('station-dist').innerText = (distToNext < 20 && speed_kph < 1) 
+                    ? `정차 중... (${Math.ceil(next.stopTime - stopTimer)}초)` 
+                    : `남은 거리: ${distToNext}M`;
+            }
+            updateSound(power_notch, speed_kph);
         }
 
-        const bar = document.getElementById('throttle-bar');
-        bar.style.left = throttle >= 0 ? '50%' : (50 + throttle/2) + '%';
-        bar.style.width = Math.abs(throttle/2) + '%';
-        bar.style.backgroundColor = isStationWaiting ? '#94a3b8' : (throttle >= 0 ? '#3b82f6' : '#ef4444');
-        
-        if (train.position.z < TUNNEL_START_Z) {
-            scene.background.set(0x000000);
-            scene.fog.color.set(0x000000);
-            mainLight.intensity = 0.05;
-        } else {
-            scene.background.set(0x87CEEB);
-            scene.fog.color.set(0x87CEEB);
-            mainLight.intensity = 1.2;
+        function animate() {
+            const now = performance.now();
+            update(Math.min((now - lastTime)/1000, 0.1));
+            lastTime = now;
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
         }
-    }
 
-    function showEndMsg(t, d) {
-        const o = document.getElementById('message-overlay');
-        o.innerHTML = `<div class="text-center p-12 bg-white rounded-3xl shadow-2xl border-t-8 border-green-500"><h2 class="text-4xl font-black mb-4 text-slate-800">${t}</h2><p class="mb-10 text-gray-500 font-medium">${d}</p><button onclick="location.reload()" class="bg-green-600 text-white px-16 py-4 rounded-full font-black hover:bg-green-700 transition-colors shadow-lg">다시 시작</button></div>`;
-        o.style.display = 'flex';
-    }
-
-    function onResize() {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-
-    function animate() {
-        requestAnimationFrame(animate);
-        const dt = Math.min(clock.getDelta(), 0.1);
-        if (isStarted && !isGameOver) updatePhysics(dt);
-        renderer.render(scene, camera);
-    }
-
-    document.getElementById('start-btn').onclick = () => {
-        isStarted = true;
-        document.getElementById('start-screen').style.display = 'none';
-        init();
-    };
-</script>
+        window.onload = () => { buildWorld(); animate(); };
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
 </body>
 </html>

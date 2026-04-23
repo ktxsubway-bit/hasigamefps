@@ -3,406 +3,619 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 써니 메트로폴리스 - 데이 나이트 사이클</title>
+    <title>Seoul Metro Line 2 Simulator - Enhanced Doors</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Pretendard', sans-serif; background: #000; }
-        canvas { display: block; }
-        #ui {
-            position: absolute;
-            top: 25px; left: 25px; right: 25px;
-            pointer-events: none;
-            color: #f8fafc;
-            z-index: 10;
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Noto+Sans+KR:wght@300;500;900&display=swap');
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Noto Sans KR', sans-serif; }
+        #ui-container { position: absolute; inset: 0; pointer-events: none; z-index: 100; }
+        #station-info {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            width: 80%; max-width: 500px; background: rgba(255, 255, 255, 0.95);
+            border-left: 8px solid #2ecc71; padding: 15px 25px;
+            color: #1a1a1a; pointer-events: auto; border-radius: 12px; box-shadow: 0 15px 35px rgba(0,0,0,0.15);
         }
-        #chat-container {
-            position: absolute;
-            bottom: 25px; left: 25px;
-            width: 380px;
-            max-height: 350px;
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(15px);
-            border-radius: 20px;
-            display: flex;
-            flex-direction: column;
-            pointer-events: auto;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        #speed-panel { position: absolute; bottom: 40px; left: 40px; color: white; text-shadow: 2px 2px 12px rgba(0,0,0,0.6); }
+        #speed-num { font-family: 'Orbitron', sans-serif; font-size: 5.5rem; font-weight: 900; color: #ffffff; line-height: 1; }
+        #control-guide { position: absolute; bottom: 140px; right: 40px; background: rgba(0, 0, 0, 0.7); padding: 18px; border-radius: 12px; color: #fff; font-size: 0.9rem; line-height: 1.8; text-align: right; }
+        #throttle-container { position: absolute; bottom: 40px; right: 40px; width: 320px; pointer-events: auto; }
+        #announcement-sub {
+            position: absolute; top: 120px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 12px 24px;
+            border-radius: 8px; font-size: 1.2rem; font-weight: 500; text-align: center;
+            display: none; transition: opacity 0.5s; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.2);
         }
-        #chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            font-size: 14px;
-            color: #e2e8f0;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(255,255,255,0.2) transparent;
+        #start-screen {
+            position: absolute; inset: 0; background: linear-gradient(135deg, #1e40af 0%, #2ecc71 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000; color: white;
         }
-        #chat-input-container {
-            display: flex;
-            padding: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        #chat-input {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #f8fafc;
-            padding: 12px 16px;
-            border-radius: 12px;
-            outline: none;
-            transition: all 0.2s;
-        }
-        #chat-input:focus { border-color: #38bdf8; background: rgba(255, 255, 255, 0.1); }
-        .msg-item { margin-bottom: 8px; line-height: 1.5; }
-        .msg-user { font-weight: 700; color: #38bdf8; margin-right: 8px; }
-        #status-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #020617; display: flex; align-items: center; justify-content: center;
-            z-index: 100; color: #f8fafc; transition: opacity 1s;
-        }
-        .crosshair {
-            position: absolute; top: 50%; left: 50%;
-            width: 10px; height: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-        }
-        #time-display {
-            font-family: monospace;
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #fbbf24;
-        }
+        #message-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
     </style>
 </head>
 <body>
 
-<div id="status-overlay">
-    <div class="text-center">
-        <div class="text-5xl font-black mb-4 tracking-tighter text-sky-400 italic">CITY SYNC</div>
-        <div id="loader-text" class="text-xs opacity-40 tracking-[0.6em] uppercase font-bold">Connecting to Firestore...</div>
-    </div>
+<div id="start-screen">
+    <div class="text-white font-black tracking-[0.3em] mb-2 opacity-80 uppercase text-sm">Seoul Metro Line 2</div>
+    <h1 class="text-7xl font-black mb-6 tracking-tighter">강변 <span class="text-3xl font-light mx-4">→</span> 삼성</h1>
+    <p class="mb-8 opacity-70">AI 열차 트래픽이 강화된 시뮬레이터</p>
+    <button id="start-btn" class="bg-white text-green-600 hover:scale-105 px-20 py-5 rounded-full text-2xl font-black transition-all shadow-[0_20px_50px_rgba(0,0,0,0.3)] pointer-events-auto">운전 시작</button>
 </div>
 
-<div class="crosshair"></div>
-
-<div id="ui">
-    <div class="flex justify-between items-start">
-        <div class="bg-black/40 p-6 rounded-2xl border-l-4 border-amber-500 shadow-2xl backdrop-blur-md">
-            <h1 class="text-xl font-black tracking-tighter text-white">CHRONOS METROPOLIS</h1>
-            <div id="time-display">12:00</div>
-            <div id="cycle-text" class="text-[10px] opacity-80 mt-1 uppercase tracking-widest font-bold text-amber-400">Daytime</div>
-        </div>
-        <div class="text-right text-[11px] space-y-2 bg-black/40 p-5 rounded-2xl border-r-4 border-sky-500 shadow-2xl text-slate-300 font-medium backdrop-blur-md">
-            <p><span class="bg-white/10 px-2 py-1 rounded">WASD</span> 이동</p>
-            <p><span class="bg-white/10 px-2 py-1 rounded">SHIFT</span> 달리기</p>
-            <p><span class="bg-white/10 px-2 py-1 rounded">CLICK</span> 시점 고정</p>
+<div id="ui-container">
+    <div id="station-info">
+        <div class="flex justify-between items-center">
+            <div>
+                <div id="target-label" class="text-green-600 text-[11px] font-black mb-1 uppercase tracking-widest">Next Station</div>
+                <div id="target-name" class="text-3xl font-black italic">잠실나루</div>
+            </div>
+            <div class="text-right">
+                <div class="text-gray-400 text-[11px] font-bold mb-1 uppercase tracking-widest">Distance</div>
+                <div id="dist-remain" class="text-2xl font-black text-green-700 tracking-tighter">0.00 km</div>
+            </div>
         </div>
     </div>
-</div>
-
-<div id="chat-container">
-    <div id="chat-messages"></div>
-    <div id="chat-input-container">
-        <input type="text" id="chat-input" placeholder="메시지를 입력하세요 (Enter)" maxlength="50">
+    <div id="announcement-sub"></div>
+    <div id="control-guide">
+        <strong class="text-green-400 font-black">COMMANDS</strong><br>
+        W: 가속 | S: 제동 | Space: 중립 | Q: 비상제동
+    </div>
+    <div id="speed-panel">
+        <div class="text-[11px] font-black text-white/80 mb-1 uppercase tracking-widest">Velocity</div>
+        <div class="flex items-baseline gap-2">
+            <span id="speed-num">0</span>
+            <span class="text-2xl font-bold opacity-80">km/h</span>
+        </div>
+    </div>
+    <div id="throttle-container">
+        <div class="flex justify-between text-[11px] font-black text-white mb-3 tracking-widest">
+            <span class="text-red-400">BRAKE</span>
+            <span class="opacity-50">N</span>
+            <span class="text-blue-400">POWER</span>
+        </div>
+        <div class="h-3 bg-black/50 rounded-full relative overflow-hidden backdrop-blur-xl border border-white/10">
+            <div id="throttle-bar" class="absolute h-full left-1/2 w-0 transition-all duration-300"></div>
+        </div>
     </div>
 </div>
+<div id="message-overlay"></div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+<script>
+    let scene, camera, renderer, train, clock;
+    let speed = 0, distance = 0, throttle = 0;
+    let isStarted = false, isGameOver = false, isAnnouncing = false;
+    let isStationWaiting = false;
+    let mainLight;
+    const apiKey = ""; 
+    
+    let audioCtx, inverterOsc, motorGain;
 
-    // --- Firebase Setup (Updated with user provided config) ---
-    let db, auth;
-    let currentUser = null;
-    let isOffline = true;
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'home-cb654';
+    const BRIDGE_Y = 15;
+    const TRACK_X_OFFSET = 4.0; 
+    const PLATFORM_GAP = 7.0; 
+    const TUNNEL_START_Z = -1800; 
+    const STATIONS = [
+        { name: "강변", z: 0, isUnderground: false },
+        { name: "잠실나루", z: -1300, isUnderground: false },
+        { name: "잠실", z: -2800, isUnderground: true },
+        { name: "잠실새내", z: -4300, isUnderground: true },
+        { name: "종합운동장", z: -5800, isUnderground: true },
+        { name: "삼성", z: -7500, isUnderground: true }
+    ];
+    
+    let aiTrains = [];
+    const AI_TRACK_X = -TRACK_X_OFFSET;
+    let lastAISpawnDistance = 0;
 
-    // Provided Config
-    const firebaseConfig = {
-        apiKey: "AIzaSyDhkcSNFROQg0kYLfbbKyWg4Q4vGa_A7qs",
-        authDomain: "home-cb654.firebaseapp.com",
-        databaseURL: "https://home-cb654-default-rtdb.firebaseio.com",
-        projectId: "home-cb654",
-        storageBucket: "home-cb654.firebasestorage.app",
-        messagingSenderId: "770872822254",
-        appId: "1:770872822254:web:53e5958f40d0442e9de6ff",
-        measurementId: "G-XTVP3R7JMJ"
-    };
+    let currentTargetIdx = 1;
+    let hasAnnouncedRiver = false;
 
-    try {
-        const app = initializeApp(firebaseConfig);
-        auth = getAuth(app);
-        db = getFirestore(app);
-        isOffline = false;
-    } catch (e) {
-        console.error("Firebase Initialization Error:", e);
+    function initAudio() {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        inverterOsc = audioCtx.createOscillator();
+        inverterOsc.type = 'sawtooth';
+        motorGain = audioCtx.createGain();
+        motorGain.gain.value = 0;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 800;
+        inverterOsc.connect(filter);
+        filter.connect(motorGain);
+        motorGain.connect(audioCtx.destination);
+        inverterOsc.start();
     }
 
-    // --- Three.js Logic ---
-    let scene, camera, renderer, clock, sunLight, ambientLight;
-    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, isSprinting = false;
-    let yaw = 0, pitch = 0;
-    const obstacles = [];
-    const windowMaterials = [];
-    const lampMaterials = [];
-    const EYE_HEIGHT = 1.7;
-    let dayTime = 12.0; 
-    const TIME_SPEED = 0.5;
-
-    function updateDayNightCycle(delta) {
-        dayTime = (dayTime + delta * TIME_SPEED) % 24;
-        const hour = Math.floor(dayTime);
-        const min = Math.floor((dayTime % 1) * 60);
-        document.getElementById('time-display').textContent = `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
-
-        let skyColor, sunIntensity, ambientIntensity;
-        if (dayTime >= 5 && dayTime < 8) { 
-            const t = (dayTime - 5) / 3;
-            skyColor = new THREE.Color().lerpColors(new THREE.Color(0x1e293b), new THREE.Color(0xfb923c), t);
-            sunIntensity = t * 0.8; ambientIntensity = 0.3 + t * 0.2;
-            document.getElementById('cycle-text').textContent = "Dawn";
-        } else if (dayTime >= 8 && dayTime < 17) { 
-            skyColor = new THREE.Color(0x7dd3fc); sunIntensity = 1.2; ambientIntensity = 0.6;
-            document.getElementById('cycle-text').textContent = "Daytime";
-        } else if (dayTime >= 17 && dayTime < 20) { 
-            const t = (dayTime - 17) / 3;
-            skyColor = new THREE.Color().lerpColors(new THREE.Color(0x7dd3fc), new THREE.Color(0x4c1d95), t);
-            sunIntensity = 1.2 * (1 - t); ambientIntensity = 0.6 * (1 - t) + 0.2;
-            document.getElementById('cycle-text').textContent = "Sunset";
-        } else { 
-            skyColor = new THREE.Color(0x020617); sunIntensity = 0; ambientIntensity = 0.2;
-            document.getElementById('cycle-text').textContent = "Midnight";
-        }
-
-        scene.background = skyColor;
-        scene.fog.color = skyColor;
-        sunLight.intensity = sunIntensity;
-        ambientLight.intensity = ambientIntensity;
-
-        const angle = (dayTime / 24) * Math.PI * 2 + Math.PI;
-        sunLight.position.set(Math.cos(angle) * 200, Math.sin(angle) * 200, 100);
-
-        const lightThreshold = (dayTime > 18 || dayTime < 6);
-        windowMaterials.forEach(m => {
-            if (m.userData.alwaysOff) return;
-            m.emissiveIntensity = THREE.MathUtils.lerp(m.emissiveIntensity, lightThreshold ? m.userData.origIntensity : 0, 0.1);
-        });
-        lampMaterials.forEach(m => {
-            m.emissiveIntensity = THREE.MathUtils.lerp(m.emissiveIntensity, lightThreshold ? 2.5 : 0, 0.1);
-        });
+    function updateMotorSound() {
+        if (!audioCtx) return;
+        let targetFreq = 100 + (speed * 5);
+        if (speed > 40) targetFreq = 300 + (speed * 1.5);
+        inverterOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+        let targetVolume = (Math.abs(throttle) > 0 && !isStationWaiting) ? 0.04 : 0;
+        if (speed < 0.5) targetVolume = 0;
+        motorGain.gain.setTargetAtTime(targetVolume, audioCtx.currentTime, 0.2);
     }
 
-    function createDetailedBuilding(x, z, width, height, depth) {
-        const group = new THREE.Group();
-        const bodyMat = new THREE.MeshStandardMaterial({ color: [0x1e293b, 0x334155, 0x475569][Math.floor(Math.random() * 3)], roughness: 0.8 });
-        const body = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), bodyMat);
-        body.position.y = height / 2; group.add(body);
-
-        const winColors = [0xffd166, 0xfcfcfc, 0x0ea5e9];
-        const gap = 3;
-        const windowGeo = new THREE.PlaneGeometry(0.8, 1.2);
-
-        for (let y = 3; y < height - 2; y += gap) {
-            for (let side = 0; side < 4; side++) {
-                const limit = (side % 2 === 0) ? width : depth;
-                for (let p = -limit / 2 + 1.5; p < limit / 2 - 1; p += gap) {
-                    const mat = new THREE.MeshStandardMaterial({ color: 0x111827, emissive: winColors[Math.floor(Math.random() * winColors.length)], emissiveIntensity: 0 });
-                    mat.userData = { origIntensity: Math.random() * 0.8 + 0.7, alwaysOff: Math.random() < 0.3 };
-                    windowMaterials.push(mat);
-                    const win = new THREE.Mesh(windowGeo, mat);
-                    if (side === 0) win.position.set(p, y, depth / 2 + 0.05);
-                    if (side === 1) { win.position.set(width / 2 + 0.05, y, p); win.rotation.y = Math.PI / 2; }
-                    if (side === 2) { win.position.set(p, y, -depth / 2 - 0.05); win.rotation.y = Math.PI; }
-                    if (side === 3) { win.position.set(-width / 2 - 0.05, y, p); win.rotation.y = -Math.PI / 2; }
-                    group.add(win);
-                }
-            }
-        }
-        group.position.set(x, 0, z); scene.add(group);
-        obstacles.push({ minX: x-width/2-0.5, maxX: x+width/2+0.5, minZ: z-depth/2-0.5, maxZ: z+depth/2+0.5, type: 'box' });
-    }
-
-    // --- Firestore Chat Logic ---
-    function startChatSync() {
-        if (!db || !currentUser) return;
-        const chatCol = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
-        
-        onSnapshot(chatCol, (snapshot) => {
-            const messages = [];
-            snapshot.forEach(doc => {
-                messages.push({ id: doc.id, ...doc.data() });
-            });
-            messages.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
-            const container = document.getElementById('chat-messages');
-            container.innerHTML = '';
-            messages.slice(-50).forEach(msg => appendChatUI(msg));
-            container.scrollTop = container.scrollHeight;
-        }, (err) => {
-            console.error("Firestore Listen Error:", err);
-        });
-    }
-
-    async function sendChatMessage() {
-        const input = document.getElementById('chat-input');
-        const text = input.value.trim();
-        if (!text) return;
-        if (isOffline || !currentUser) return;
-
-        input.disabled = true;
+    async function speak(text) {
+        if (isAnnouncing) return;
+        isAnnouncing = true;
+        const sub = document.getElementById('announcement-sub');
+        sub.style.display = 'block';
+        sub.innerText = text;
         try {
-            const chatCol = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
-            await addDoc(chatCol, {
-                uid: currentUser.uid,
-                text: text,
-                timestamp: serverTimestamp()
-            });
-            input.value = '';
+            const prompt = `Say in a professional subway announcer voice: "Kore: ${text}"`;
+            const result = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } }
+                    }
+                })
+            }).then(r => r.json());
+            
+            const audioPart = result.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+            if (!audioPart) throw new Error("No audio");
+            const audioData = base64ToUint8Array(audioPart.inlineData.data);
+            const wavBuffer = pcmToWav(audioData, 24000);
+            const audio = new Audio(URL.createObjectURL(new Blob([wavBuffer], { type: 'audio/wav' })));
+            audio.onended = () => { isAnnouncing = false; sub.style.display = 'none'; };
+            audio.play();
         } catch (e) {
-            console.error("Firestore Send Error:", e);
-        } finally {
-            input.disabled = false;
-            input.focus();
+            isAnnouncing = false;
+            setTimeout(() => { sub.style.display = 'none'; }, 3000);
         }
     }
 
-    function appendChatUI(data) {
-        const container = document.getElementById('chat-messages');
-        const div = document.createElement('div');
-        div.className = 'msg-item';
-        const displayUid = data.uid ? data.uid.substring(0, 5) : 'Unknown';
-        div.innerHTML = `<span class="msg-user">@${displayUid}</span><span class="msg-text">${data.text}</span>`;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
+    function base64ToUint8Array(base64) {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+        return bytes;
     }
 
-    async function init() {
+    function pcmToWav(pcmData, sampleRate) {
+        const buffer = new ArrayBuffer(44 + pcmData.length);
+        const view = new DataView(buffer);
+        const writeString = (v, o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 32 + pcmData.length, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true); 
+        view.setUint16(22, 1, true); 
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true); 
+        view.setUint16(32, 2, true); 
+        view.setUint16(34, 16, true); 
+        writeString(view, 36, 'data');
+        view.setUint32(40, pcmData.length, true);
+        new Uint8Array(buffer, 44).set(pcmData);
+        return buffer;
+    }
+
+    function init() {
         scene = new THREE.Scene();
-        scene.fog = new THREE.Fog(0x7dd3fc, 1, 800);
-        ambientLight = new THREE.AmbientLight(0xffffff, 0.6); scene.add(ambientLight);
-        sunLight = new THREE.DirectionalLight(0xffffff, 1.2); scene.add(sunLight);
-
-        const ground = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
-        ground.rotation.x = -Math.PI / 2; scene.add(ground);
-
-        for (let i = 0; i < 40; i++) {
-            const dist = 140 + Math.random() * 300;
-            const angle = Math.random() * Math.PI * 2;
-            createDetailedBuilding(Math.cos(angle) * dist, Math.sin(angle) * dist, 15+Math.random()*15, 30+Math.random()*150, 15+Math.random()*15);
-        }
-
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.Fog(0x87CEEB, 300, 4000);
+        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 40000);
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
-
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, EYE_HEIGHT, 110);
         clock = new THREE.Clock();
+        
+        mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        mainLight.position.set(100, 500, 100);
+        scene.add(mainLight);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        
+        createEnvironment();
+        createTrain();
+        STATIONS.forEach(s => createStation(s));
+        
+        spawnAITrain(-600);
+        spawnAITrain(-2000);
+        spawnAITrain(-5000);
 
-        const initAuth = async () => {
-            if (isOffline) { hideOverlay(); return; }
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) {
-                console.warn("Auth failed, retrying anonymously...");
-                try { await signInAnonymously(auth); } catch(e) { isOffline = true; hideOverlay(); }
-            }
-        };
-
-        if (auth) {
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    currentUser = user;
-                    hideOverlay();
-                    startChatSync();
-                }
-            });
-        }
-
-        await initAuth();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        renderer.domElement.onclick = () => {
-            if(document.activeElement !== document.getElementById('chat-input')) {
-                renderer.domElement.requestPointerLock();
-            }
-        };
-
-        document.getElementById('chat-input').addEventListener('keypress', (e) => {
-            if(e.key === 'Enter') sendChatMessage();
-        });
-
-        document.addEventListener('keydown', (e) => updateKey(e.code, true));
-        document.addEventListener('keyup', (e) => updateKey(e.code, false));
-        document.addEventListener('mousemove', (e) => {
-            if (document.pointerLockElement) {
-                yaw -= e.movementX * 0.002;
-                pitch = Math.max(-1.5, Math.min(1.5, pitch - e.movementY * 0.002));
-            }
-        });
-
+        window.addEventListener('resize', onResize);
+        window.addEventListener('keydown', handleKeydown);
+        initAudio();
         animate();
     }
 
-    function hideOverlay() {
-        const overlay = document.getElementById('status-overlay');
-        if (overlay) {
-            overlay.style.opacity = '0';
-            setTimeout(() => overlay.remove(), 1000);
+    function createEnvironment() {
+        const groundGeo = new THREE.PlaneGeometry(15000, 40000);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x2d3a2d });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI/2;
+        ground.position.set(0, -0.5, -15000);
+        scene.add(ground);
+
+        const waterGeo = new THREE.PlaneGeometry(15000, 1000);
+        const waterMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.2 });
+        const water = new THREE.Mesh(waterGeo, waterMat);
+        water.rotation.x = -Math.PI / 2;
+        water.position.set(0, 0.1, -650);
+        scene.add(water);
+
+        const tunnelLength = 20000;
+        const tunnelGeo = new THREE.BoxGeometry(60, 20, tunnelLength);
+        const tunnelMat = new THREE.MeshStandardMaterial({ color: 0x111111, side: THREE.BackSide });
+        const tunnel = new THREE.Mesh(tunnelGeo, tunnelMat);
+        tunnel.position.set(0, BRIDGE_Y + 5, TUNNEL_START_Z - tunnelLength/2); 
+        scene.add(tunnel);
+
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(20, 22, 2), wallMat);
+        leftWall.position.set(-20, BRIDGE_Y + 5, TUNNEL_START_Z);
+        scene.add(leftWall);
+        
+        const rightWall = new THREE.Mesh(new THREE.BoxGeometry(20, 22, 2), wallMat);
+        rightWall.position.set(20, BRIDGE_Y + 5, TUNNEL_START_Z);
+        scene.add(rightWall);
+        
+        const topWall = new THREE.Mesh(new THREE.BoxGeometry(20, 14, 2), wallMat);
+        topWall.position.set(0, BRIDGE_Y + 11, TUNNEL_START_Z);
+        scene.add(topWall);
+
+        const totalRailLength = 35000;
+        [-TRACK_X_OFFSET, TRACK_X_OFFSET].forEach(trackX => {
+            const ballast = new THREE.Mesh(
+                new THREE.BoxGeometry(6, 0.8, totalRailLength), 
+                new THREE.MeshStandardMaterial({ color: 0x333333 })
+            );
+            ballast.position.set(trackX, BRIDGE_Y, -totalRailLength/2 + 500);
+            scene.add(ballast);
+
+            [-1.2, 1.2].forEach(rx => {
+                const rail = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.25, 0.4, totalRailLength), 
+                    new THREE.MeshStandardMaterial({ color: 0x999999 })
+                );
+                rail.position.set(trackX + rx, BRIDGE_Y + 0.5, -totalRailLength/2 + 500);
+                scene.add(rail);
+            });
+        });
+
+        for (let z = 300; z > TUNNEL_START_Z; z -= 40) {
+            const deck = new THREE.Mesh(new THREE.BoxGeometry(22, 1.5, 40.1), new THREE.MeshStandardMaterial({color: 0x444444}));
+            deck.position.set(0, BRIDGE_Y - 0.75, z);
+            scene.add(deck);
+
+            if (z % 80 === 0) {
+                const pillar = new THREE.Mesh(new THREE.BoxGeometry(16, BRIDGE_Y + 5, 10), new THREE.MeshStandardMaterial({color: 0x222222}));
+                pillar.position.set(0, BRIDGE_Y/2 - 2, z);
+                scene.add(pillar);
+            }
+        }
+
+        for (let i = 0; i < 300; i++) {
+            const zPos = -Math.random() * 20000;
+            if (zPos < 200 && zPos > -1500) continue; 
+            const h = 50 + Math.random() * 150;
+            const w = 30 + Math.random() * 40;
+            const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), new THREE.MeshStandardMaterial({ color: 0x64748b }));
+            const side = Math.random() > 0.5 ? 1 : -1;
+            b.position.set(side * (120 + Math.random() * 600), h/2, zPos);
+            scene.add(b);
         }
     }
 
-    function updateKey(c, p) {
-        if(c==='KeyW') moveForward=p; if(c==='KeyS') moveBackward=p;
-        if(c==='KeyA') moveLeft=p; if(c==='KeyD') moveRight=p;
-        if(c==='ShiftLeft') isSprinting=p;
+    function createStation(s) {
+        const group = new THREE.Group();
+        const platWidth = 10;
+        const platHeight = 1.8;
+        const platLength = 320;
+
+        [1, -1].forEach(side => {
+            const platX = side * (TRACK_X_OFFSET + PLATFORM_GAP);
+            const plat = new THREE.Mesh(
+                new THREE.BoxGeometry(platWidth, platHeight, platLength),
+                new THREE.MeshStandardMaterial({ color: 0x222222 })
+            );
+            plat.position.set(platX, platHeight/2, 0);
+            group.add(plat);
+
+            const psdX = side * (TRACK_X_OFFSET + 2.2);
+            for (let z = -150; z <= 150; z += 12) {
+                const glass = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.1, 4.2, 11.6),
+                    new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.3 })
+                );
+                glass.position.set(psdX, 3.8, z);
+                group.add(glass);
+
+                const frame = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.5, 4.5, 0.5),
+                    new THREE.MeshStandardMaterial({ color: 0x0f172a })
+                );
+                frame.position.set(psdX, 3.8, z - 5.8);
+                group.add(frame);
+            }
+
+            if (!s.isUnderground) {
+                for(let z = -140; z <= 140; z += 40) {
+                    const p = new THREE.Mesh(new THREE.BoxGeometry(1.2, 12, 1.2), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+                    p.position.set(platX + (side * 3), 6, z);
+                    group.add(p);
+                }
+                const roof = new THREE.Mesh(new THREE.BoxGeometry(platWidth + 4, 0.6, platLength + 20), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+                roof.position.set(platX, 11, 0);
+                group.add(roof);
+            } else {
+                const ceiling = new THREE.Mesh(new THREE.BoxGeometry(60, 1, platLength), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+                ceiling.position.set(0, 12, 0);
+                group.add(ceiling);
+            }
+        });
+
+        group.position.set(0, BRIDGE_Y, s.z);
+        scene.add(group);
     }
 
-    function checkCollision(pos) {
-        for (const obs of obstacles) {
-            if (pos.x > obs.minX && pos.x < obs.maxX && pos.z > obs.minZ && pos.z < obs.maxZ) return true;
+    /**
+     * 열차 모델 생성 함수 - 개선된 출입문 (크기 확대 및 칸당 4개 배치)
+     */
+    function createTrainModel(color) {
+        const group = new THREE.Group();
+        const trainLength = 180;
+        
+        // 차체 (Body)
+        const bodyGeo = new THREE.BoxGeometry(3.2, 3.8, trainLength);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: color });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 2.4;
+        group.add(body);
+        
+        // 창문 라인 (상단부 검은 띠)
+        const windowLine = new THREE.Mesh(
+            new THREE.BoxGeometry(3.3, 0.9, trainLength - 2), 
+            new THREE.MeshStandardMaterial({ color: 0x1a202c })
+        );
+        windowLine.position.y = 3.3;
+        group.add(windowLine);
+
+        // 출입문 설정
+        const doorWidth = 2.4; // 문의 가로 너비 확대
+        const doorHeight = 3.0; // 문의 세로 높이 확대 (차체 하단부터 거의 상단 창문 라인까지)
+        const doorMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.6, roughness: 0.4 });
+        const doorGeo = new THREE.BoxGeometry(0.1, doorHeight, doorWidth);
+        
+        // 한 칸을 20m 정도로 가정할 때 180m이면 약 9량. 
+        // 여기서는 전체를 하나의 객체로 그리되, 4도어 배치를 일정 간격으로 반복합니다.
+        const doorPositions = [];
+        const segmentLength = 20; // 량당 길이
+        const doorOffset = 4.5; // 량 내부에서 문 사이의 간격
+
+        for (let i = -4; i <= 4; i++) { // 총 9개 구획
+            let centerZ = i * segmentLength;
+            // 각 량마다 4개의 문 배치
+            doorPositions.push(centerZ - 7.5, centerZ - 2.5, centerZ + 2.5, centerZ + 7.5);
         }
-        return false;
+        
+        for (let side of [-1, 1]) {
+            doorPositions.forEach(z => {
+                // 출입문 본체
+                const door = new THREE.Mesh(doorGeo, doorMat);
+                door.position.set(side * 1.62, 1.9, z);
+                group.add(door);
+
+                // 문 중앙 수직선 (쌍미닫이 문 표현)
+                const centerLine = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.05, doorHeight, 0.05), 
+                    new THREE.MeshBasicMaterial({color: 0x333333})
+                );
+                centerLine.position.set(side * 1.68, 1.9, z);
+                group.add(centerLine);
+                
+                // 문 유창 (Door Window - 더 크게 조정)
+                const doorWin = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.12, 1.2, doorWidth - 0.4), 
+                    new THREE.MeshStandardMaterial({color: 0x1a202c})
+                );
+                doorWin.position.set(side * 1.64, 2.6, z);
+                group.add(doorWin);
+            });
+        }
+
+        // 전후면 라이트
+        const lightGeo = new THREE.SphereGeometry(0.3, 8, 8);
+        const frontLight = new THREE.Mesh(lightGeo, new THREE.MeshBasicMaterial({color: 0xffffaa}));
+        frontLight.position.set(1, 1.5, -90.1);
+        group.add(frontLight);
+        const frontLight2 = frontLight.clone();
+        frontLight2.position.x = -1;
+        group.add(frontLight2);
+
+        const tailLight = new THREE.Mesh(lightGeo, new THREE.MeshBasicMaterial({color: 0xff4444}));
+        tailLight.position.set(1, 1.5, 90.1);
+        group.add(tailLight);
+        const tailLight2 = tailLight.clone();
+        tailLight2.position.x = -1;
+        group.add(tailLight2);
+
+        return group;
+    }
+
+    function createTrain() {
+        train = createTrainModel(0x22c55e);
+        camera.position.set(0, 3.4, -89);
+        camera.lookAt(0, 3.4, -250);
+        train.add(camera);
+        train.position.set(TRACK_X_OFFSET, BRIDGE_Y + 0.1, 0);
+        scene.add(train);
+    }
+
+    function spawnAITrain(startZ) {
+        const aiModel = createTrainModel(0x22c55e);
+        aiModel.rotation.y = Math.PI; 
+        aiModel.position.set(AI_TRACK_X, BRIDGE_Y + 0.1, startZ);
+        scene.add(aiModel);
+
+        const aiObj = {
+            mesh: aiModel,
+            speed: 80,
+            targetSpeed: 80,
+            state: 'RUNNING', 
+            stopTimer: 0,
+            currentStationIdx: STATIONS.length - 1 
+        };
+        
+        for(let i=STATIONS.length-1; i>=0; i--) {
+            if(STATIONS[i].z > startZ) {
+                aiObj.currentStationIdx = i;
+                break;
+            }
+        }
+
+        aiTrains.push(aiObj);
+    }
+
+    function handleKeydown(e) {
+        if (!isStarted || isGameOver || isStationWaiting) return;
+        const k = e.key.toLowerCase();
+        if (k === 'w') throttle = Math.min(throttle + 20, 100);
+        else if (k === 's') throttle = Math.max(throttle - 20, -100);
+        else if (k === ' ') throttle = 0;
+        else if (k === 'q') throttle = -100;
+    }
+
+    function updateAI(dt) {
+        if (distance - lastAISpawnDistance > 800) {
+            spawnAITrain(train.position.z - 2000); 
+            lastAISpawnDistance = distance;
+        }
+
+        for (let i = aiTrains.length - 1; i >= 0; i--) {
+            const ai = aiTrains[i];
+            const targetStation = STATIONS[ai.currentStationIdx];
+            const distToStation = targetStation ? (targetStation.z - ai.mesh.position.z) : -9999; 
+
+            if (ai.state === 'RUNNING') {
+                ai.targetSpeed = 85;
+                if (distToStation > -450 && targetStation) { 
+                    ai.state = 'BRAKING';
+                }
+            } else if (ai.state === 'BRAKING') {
+                const brakeDist = Math.max(0, distToStation);
+                ai.targetSpeed = Math.min(85, (brakeDist / 400) * 85);
+                
+                if (distToStation > -5 && ai.speed < 2) {
+                    ai.speed = 0;
+                    ai.state = 'STOPPED';
+                    ai.stopTimer = 5 + Math.random() * 5;
+                }
+            } else if (ai.state === 'STOPPED') {
+                ai.targetSpeed = 0;
+                ai.stopTimer -= dt;
+                if (ai.stopTimer <= 0) {
+                    ai.state = 'RUNNING';
+                    ai.currentStationIdx--;
+                }
+            }
+
+            const accel = (ai.targetSpeed - ai.speed) * 0.4;
+            ai.speed += accel * dt;
+            ai.mesh.position.z += (ai.speed / 3.6) * dt;
+
+            if (ai.mesh.position.z > train.position.z + 1000 || ai.currentStationIdx < 0) {
+                scene.remove(ai.mesh);
+                aiTrains.splice(i, 1);
+            }
+        }
+    }
+
+    function updatePhysics(dt) {
+        if (isStationWaiting) throttle = 0;
+
+        speed += ((throttle/100)*4.8 - speed*0.038) * dt;
+        speed = Math.max(0, speed);
+        distance += (speed/3.6) * dt;
+        train.position.z = -distance;
+        
+        updateMotorSound();
+        updateAI(dt);
+
+        const target = STATIONS[currentTargetIdx];
+        const distToTarget = Math.abs(train.position.z - target.z);
+
+        document.getElementById('speed-num').innerText = Math.round(speed);
+        document.getElementById('dist-remain').innerText = `${(distToTarget/1000).toFixed(2)} km`;
+        document.getElementById('target-name').innerText = target.name;
+
+        if (distance > 150 && distance < 1000 && !hasAnnouncedRiver) {
+            hasAnnouncedRiver = true;
+            speak("지금 우리 열차는 잠실철교를 통해 한강을 건너고 있습니다. 우측의 한강 풍경을 즐겨주세요.");
+        }
+
+        if (distToTarget < 500 && !target.hasAnnounced) {
+            target.hasAnnounced = true;
+            speak(`이번 역은 ${target.name}, ${target.name}역입니다. 내리실 문은 오른쪽입니다.`);
+        }
+
+        if (distToTarget < 6 && speed < 1.2 && !target.hasStopped) {
+            target.hasStopped = true;
+            speed = 0;
+            if (currentTargetIdx === STATIONS.length - 1) {
+                speak("우리 열차의 종착역인 삼성역에 도착하였습니다. 소지품을 확인하시기 바랍니다.");
+                setTimeout(() => {
+                    isGameOver = true;
+                    showEndMsg("운행 종료", "삼성역에 정시 도착했습니다. 수고하셨습니다.");
+                }, 4000);
+            } else {
+                isStationWaiting = true;
+                speak("문이 열립니다. 안전사고에 유의하시기 바랍니다.");
+                setTimeout(() => {
+                    speak("문이 닫힙니다. 열차가 출발합니다.");
+                    isStationWaiting = false;
+                    currentTargetIdx++;
+                }, 7000);
+            }
+        }
+
+        const bar = document.getElementById('throttle-bar');
+        bar.style.left = throttle >= 0 ? '50%' : (50 + throttle/2) + '%';
+        bar.style.width = Math.abs(throttle/2) + '%';
+        bar.style.backgroundColor = isStationWaiting ? '#94a3b8' : (throttle >= 0 ? '#3b82f6' : '#ef4444');
+        
+        if (train.position.z < TUNNEL_START_Z) {
+            scene.background.set(0x000000);
+            scene.fog.color.set(0x000000);
+            mainLight.intensity = 0.05;
+        } else {
+            scene.background.set(0x87CEEB);
+            scene.fog.color.set(0x87CEEB);
+            mainLight.intensity = 1.2;
+        }
+    }
+
+    function showEndMsg(t, d) {
+        const o = document.getElementById('message-overlay');
+        o.innerHTML = `<div class="text-center p-12 bg-white rounded-3xl shadow-2xl border-t-8 border-green-500"><h2 class="text-4xl font-black mb-4 text-slate-800">${t}</h2><p class="mb-10 text-gray-500 font-medium">${d}</p><button onclick="location.reload()" class="bg-green-600 text-white px-16 py-4 rounded-full font-black hover:bg-green-700 transition-colors shadow-lg">다시 시작</button></div>`;
+        o.style.display = 'flex';
+    }
+
+    function onResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
     function animate() {
         requestAnimationFrame(animate);
-        const delta = clock.getDelta();
-        updateDayNightCycle(delta);
-
-        if (document.pointerLockElement) {
-            const speed = (isSprinting ? 15 : 7) * delta;
-            const dir = new THREE.Vector3();
-            if (moveForward) dir.z -= 1; if (moveBackward) dir.z += 1;
-            if (moveLeft) dir.x -= 1; if (moveRight) dir.x += 1;
-            
-            if (dir.length() > 0) {
-                dir.normalize().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), yaw));
-                const nextX = camera.position.clone().add(new THREE.Vector3(dir.x * speed, 0, 0));
-                const nextZ = camera.position.clone().add(new THREE.Vector3(0, 0, dir.z * speed));
-                if (!checkCollision(nextX)) camera.position.x = nextX.x;
-                if (!checkCollision(nextZ)) camera.position.z = nextZ.z;
-            }
-            camera.rotation.set(0,0,0);
-            camera.rotateY(yaw); camera.rotateX(pitch);
-        }
+        const dt = Math.min(clock.getDelta(), 0.1);
+        if (isStarted && !isGameOver) updatePhysics(dt);
         renderer.render(scene, camera);
     }
 
-    window.onload = init;
+    document.getElementById('start-btn').onclick = () => {
+        isStarted = true;
+        document.getElementById('start-screen').style.display = 'none';
+        init();
+    };
 </script>
 </body>
 </html>
